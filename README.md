@@ -1,5 +1,8 @@
 # Digraph
 
+[![GoDoc](https://godoc.org/github.com/bserdar/digraph?status.svg)](https://godoc.org/github.com/bserdar/digraph)
+[![Go Report](https://goreportcard.com/badge/github.com/bserdar/digraph)](https://goreportcard.com/report/github.com/bserdar/digraph)
+
 This package provides the `digraph` package that implements a directed
 graph data structure. Nodes and edges may be labeled, and they may
 have application-specific payloads.

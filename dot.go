@@ -27,7 +27,7 @@ func (d DOTRenderer) RenderEdge(fromID, toID string, edge *Edge, w io.Writer) er
 	return d.EdgeRenderer(fromID, toID, edge, w)
 }
 
-// DefaultDOTNodeRenderer renders the node with the given ID. If the
+// DefaultDOTNodeRender renders the node with the given ID. If the
 // node has a label, it uses that label, otherwise node is not
 // labeled.
 func DefaultDOTNodeRender(ID string, node *Node, w io.Writer) error {
@@ -39,7 +39,7 @@ func DefaultDOTNodeRender(ID string, node *Node, w io.Writer) error {
 	return err
 }
 
-// DefaultDOTEdgeRenderer renders the edge with a label if there is
+// DefaultDOTEdgeRender renders the edge with a label if there is
 // one, or without a label if there is not a label.
 func DefaultDOTEdgeRender(fromNode, toNode string, edge *Edge, w io.Writer) error {
 	lbl := edge.Label()

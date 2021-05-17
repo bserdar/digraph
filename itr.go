@@ -4,9 +4,13 @@ import (
 	"container/list"
 )
 
+// Nodes iterates through a list of nodes
 type Nodes interface {
+	// Returns if there are more nodes to go through
 	HasNext() bool
+	// If HasNext is true, returns the next node and advances. Otherwise, panics
 	Next() *Node
+	// Returns all remaining nodes
 	All() []*Node
 }
 
@@ -38,9 +42,13 @@ func (l *listNodes) All() []*Node {
 	return ret
 }
 
+// Edges iterates through a list of edges
 type Edges interface {
+	// Returns if there are more edges to go through
 	HasNext() bool
+	// If HasNext is true, returns the next edge and advances. Otherwise panics
 	Next() *Edge
+	// Returns all remaining edges
 	All() []*Edge
 }
 

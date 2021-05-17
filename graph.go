@@ -61,16 +61,16 @@ type Edge struct {
 }
 
 // Label returns the edge label. Label may be nil
-func (e *Edge) Label() interface{} { return e.label }
+func (edge *Edge) Label() interface{} { return edge.label }
 
 // From returns the source node for the edge. This cannot be nil.
-func (e *Edge) From() *Node { return e.from }
+func (edge *Edge) From() *Node { return edge.from }
 
 // To returns the target node for the edge. This cannot be nil.
-func (e *Edge) To() *Node { return e.to }
+func (edge *Edge) To() *Node { return edge.to }
 
 // Label returns the node label. Label may be nil
-func (n *Node) Label() interface{} { return n.label }
+func (node *Node) Label() interface{} { return node.label }
 
 func (g *Graph) init() *Graph {
 	if g.nodesByLabel == nil {

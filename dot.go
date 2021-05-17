@@ -5,11 +5,13 @@ import (
 	"io"
 )
 
+// DOTRenderer renders a graph in Graphviz dot format
 type DOTRenderer struct {
 	NodeRenderer func(string, *Node, io.Writer) error
 	EdgeRenderer func(string, string, *Edge, io.Writer) error
 }
 
+// RenderNode renders a node. If node renderer is not set, calls the default renderer
 func (d DOTRenderer) RenderNode(ID string, node *Node, w io.Writer) error {
 	if d.NodeRenderer == nil {
 		return DefaultDOTNodeRender(ID, node, w)
@@ -17,6 +19,7 @@ func (d DOTRenderer) RenderNode(ID string, node *Node, w io.Writer) error {
 	return d.NodeRenderer(ID, node, w)
 }
 
+// RenderEdge renders an edge. If edge renderer is not set, call the default rendeded
 func (d DOTRenderer) RenderEdge(fromID, toID string, edge *Edge, w io.Writer) error {
 	if d.EdgeRenderer == nil {
 		return DefaultDOTEdgeRender(fromID, toID, edge, w)
@@ -24,6 +27,9 @@ func (d DOTRenderer) RenderEdge(fromID, toID string, edge *Edge, w io.Writer) er
 	return d.EdgeRenderer(fromID, toID, edge, w)
 }
 
+// DefaultDOTNodeRenderer renders the node with the given ID. If the
+// node has a label, it uses that label, otherwise node is not
+// labeled.
 func DefaultDOTNodeRender(ID string, node *Node, w io.Writer) error {
 	if node.Label() != nil {
 		_, err := fmt.Fprintf(w, "  %s [label=\"%v\"];\n", ID, node.Label())
@@ -33,6 +39,8 @@ func DefaultDOTNodeRender(ID string, node *Node, w io.Writer) error {
 	return err
 }
 
+// DefaultDOTEdgeRenderer renders the edge with a label if there is
+// one, or without a label if there is not a label.
 func DefaultDOTEdgeRender(fromNode, toNode string, edge *Edge, w io.Writer) error {
 	lbl := edge.Label()
 	if lbl != nil {
@@ -47,6 +55,7 @@ func DefaultDOTEdgeRender(fromNode, toNode string, edge *Edge, w io.Writer) erro
 	return nil
 }
 
+// Render writes a DOT graph with the given name
 func (d DOTRenderer) Render(g *Graph, graphName string, out io.Writer) error {
 	if _, err := fmt.Fprintf(out, "digraph %s {\n", graphName); err != nil {
 		return err

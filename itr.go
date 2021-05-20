@@ -42,6 +42,15 @@ func (l *listNodes) All() []*Node {
 	return ret
 }
 
+type arrNodes struct {
+	arr []*Node
+	at  int
+}
+
+func (a *arrNodes) HasNext() bool { return a.at < len(a.arr) }
+func (a *arrNodes) Next() *Node   { ret := a.arr[a.at]; a.at++; return ret }
+func (a *arrNodes) All() []*Node  { return a.arr[a.at:] }
+
 // Edges iterates through a list of edges
 type Edges interface {
 	// Returns if there are more edges to go through
@@ -50,13 +59,20 @@ type Edges interface {
 	Next() *Edge
 	// Returns all remaining edges
 	All() []*Edge
+
+	// Returns a node iterator that will go through each target node once
+	Targets() Nodes
+	// Returns a node iterator that will go through each source node once
+	Sources() Nodes
 }
 
 type emptyEdges struct{}
 
-func (emptyEdges) HasNext() bool { return false }
-func (emptyEdges) Next() *Edge   { panic("No more edges") }
-func (emptyEdges) All() []*Edge  { return nil }
+func (emptyEdges) HasNext() bool  { return false }
+func (emptyEdges) Next() *Edge    { panic("No more edges") }
+func (emptyEdges) All() []*Edge   { return nil }
+func (emptyEdges) Targets() Nodes { return &emptyNodes{} }
+func (emptyEdges) Sources() Nodes { return &emptyNodes{} }
 
 type listEdges struct {
 	at *list.Element
@@ -76,6 +92,32 @@ func (l *listEdges) All() []*Edge {
 	ret := make([]*Edge, 0)
 	for ; l.at != nil; l.at = l.at.Next() {
 		ret = append(ret, l.at.Value.(*Edge))
+	}
+	return ret
+}
+
+func (l *listEdges) Targets() Nodes {
+	nodes := make(map[*Node]struct{})
+	ret := &arrNodes{}
+	for x := l.at; x != nil; x = x.Next() {
+		node := x.Value.(*Edge).To()
+		if _, exists := nodes[node]; !exists {
+			nodes[node] = struct{}{}
+			ret.arr = append(ret.arr, node)
+		}
+	}
+	return ret
+}
+
+func (l *listEdges) Sources() Nodes {
+	nodes := make(map[*Node]struct{})
+	ret := &arrNodes{}
+	for x := l.at; x != nil; x = x.Next() {
+		node := x.Value.(*Edge).From()
+		if _, exists := nodes[node]; !exists {
+			nodes[node] = struct{}{}
+			ret.arr = append(ret.arr, node)
+		}
 	}
 	return ret
 }

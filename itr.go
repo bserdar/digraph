@@ -51,6 +51,54 @@ func (a *arrNodes) HasNext() bool { return a.at < len(a.arr) }
 func (a *arrNodes) Next() *Node   { ret := a.arr[a.at]; a.at++; return ret }
 func (a *arrNodes) All() []*Node  { return a.arr[a.at:] }
 
+type edgeNodes struct {
+	edge   *list.Element
+	seen   map[*Node]struct{}
+	node   func(*Edge) *Node
+	seeked bool
+}
+
+func (a *edgeNodes) HasNext() bool {
+	if a.seeked {
+		return true
+	}
+	if a.seen == nil {
+		a.seen = make(map[*Node]struct{})
+	}
+	for {
+		if a.edge == nil {
+			return false
+		}
+		node := a.node(a.edge.Value.(*Edge))
+		if _, seen := a.seen[node]; !seen {
+			a.seeked = true
+			return true
+		}
+		a.edge = a.edge.Next()
+	}
+}
+
+func (a *edgeNodes) Next() *Node {
+	if !a.seeked {
+		a.HasNext()
+	}
+	if a.seen == nil {
+		a.seen = make(map[*Node]struct{})
+	}
+	node := a.node(a.edge.Value.(*Edge))
+	a.seen[node] = struct{}{}
+	a.seeked = false
+	return node
+}
+
+func (a *edgeNodes) All() []*Node {
+	ret := make([]*Node, 0)
+	for a.HasNext() {
+		ret = append(ret, a.Next())
+	}
+	return ret
+}
+
 // Edges iterates through a list of edges
 type Edges interface {
 	// Returns if there are more edges to go through
@@ -97,27 +145,9 @@ func (l *listEdges) All() []*Edge {
 }
 
 func (l *listEdges) Targets() Nodes {
-	nodes := make(map[*Node]struct{})
-	ret := &arrNodes{}
-	for x := l.at; x != nil; x = x.Next() {
-		node := x.Value.(*Edge).To()
-		if _, exists := nodes[node]; !exists {
-			nodes[node] = struct{}{}
-			ret.arr = append(ret.arr, node)
-		}
-	}
-	return ret
+	return &edgeNodes{edge: l.at, node: func(e *Edge) *Node { return e.To() }, seeked: l.at != nil}
 }
 
 func (l *listEdges) Sources() Nodes {
-	nodes := make(map[*Node]struct{})
-	ret := &arrNodes{}
-	for x := l.at; x != nil; x = x.Next() {
-		node := x.Value.(*Edge).From()
-		if _, exists := nodes[node]; !exists {
-			nodes[node] = struct{}{}
-			ret.arr = append(ret.arr, node)
-		}
-	}
-	return ret
+	return &edgeNodes{edge: l.at, node: func(e *Edge) *Node { return e.From() }, seeked: l.at != nil}
 }

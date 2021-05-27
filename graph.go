@@ -141,27 +141,39 @@ func (g *Graph) NewEdge(from, to *Node, label, payload interface{}) *Edge {
 		from:  from,
 		to:    to,
 	}
-	lst := from.out[label]
+	edge.attachFrom(from)
+	edge.attachTo(to)
+	return edge
+}
+
+func (edge *Edge) attachFrom(from *Node) {
+	lst := from.out[edge.label]
 	if lst == nil {
 		lst = list.New()
-		from.out[label] = lst
+		from.out[edge.label] = lst
 	}
 	edge.outEl = lst.PushBack(edge)
 	edge.allOutEl = from.allOut.PushBack(edge)
+}
 
-	lst = to.in[label]
+func (edge *Edge) attachTo(to *Node) {
+	lst := to.in[edge.label]
 	if lst == nil {
 		lst = list.New()
-		to.in[label] = lst
+		to.in[edge.label] = lst
 	}
 	edge.inEl = lst.PushBack(edge)
 	edge.allInEl = to.allIn.PushBack(edge)
-	return edge
 }
 
 // Remove the edge. The edge is removed from the source and target
 // nodes. This method runs in constant-time.
 func (edge *Edge) Remove() {
+	edge.detachFrom()
+	edge.detachTo()
+}
+
+func (edge *Edge) detachFrom() {
 	if edge.from != nil {
 		lst := edge.from.out[edge.label]
 		lst.Remove(edge.outEl)
@@ -171,6 +183,9 @@ func (edge *Edge) Remove() {
 		edge.from.allOut.Remove(edge.allOutEl)
 		edge.from = nil
 	}
+}
+
+func (edge *Edge) detachTo() {
 	if edge.to != nil {
 		lst := edge.to.in[edge.label]
 		lst.Remove(edge.inEl)
@@ -180,6 +195,24 @@ func (edge *Edge) Remove() {
 		edge.to.allIn.Remove(edge.allInEl)
 		edge.to = nil
 	}
+}
+
+// SetTo redirects the target node of the edge
+func (edge *Edge) SetTo(node *Node) {
+	if node.graph != edge.from.graph {
+		panic("Not in same graph")
+	}
+	edge.detachTo()
+	edge.attachTo(node)
+}
+
+// SetFrom sets the source node of the edge
+func (edge *Edge) SetFrom(node *Node) {
+	if node.graph != edge.to.graph {
+		panic("Not in same graph")
+	}
+	edge.detachFrom()
+	edge.attachFrom(node)
 }
 
 // Remove the node. The node and all the edges incoming and outgoing

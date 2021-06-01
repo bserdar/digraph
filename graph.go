@@ -237,6 +237,19 @@ func (node *Node) Remove() {
 	node.graph = nil
 }
 
+// SetLabel sets the label of the node
+func (node *Node) SetLabel(label interface{}) {
+	lst := node.graph.nodesByLabel[node.label]
+	lst.Remove(node.nodesByLabelEl)
+	node.label = label
+	lst = node.graph.nodesByLabel[node.label]
+	if lst == nil {
+		lst = list.New()
+		node.graph.nodesByLabel[node.label] = lst
+	}
+	node.nodesByLabelEl = lst.PushBack(node)
+}
+
 // NextNode returns the next node reached following the edge with the
 // given label. If there is no such node, returns nil. If there are
 // multiple, panics. This runs in constant time.

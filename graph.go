@@ -124,7 +124,7 @@ func (edgehdr *EdgeHeader) From() Node { return edgehdr.from }
 // To returns the target node for the edge. This cannot be nil.
 func (edgehdr *EdgeHeader) To() Node { return edgehdr.to }
 
-// GetEdhgeHeader returns edge
+// GetEdgeHeader returns edge
 func (edgehdr *EdgeHeader) GetEdgeHeader() *EdgeHeader { return edgehdr }
 
 // BasicEdge contains an application-defined payload

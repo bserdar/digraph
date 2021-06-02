@@ -83,16 +83,16 @@ type NodeHeader struct {
 }
 
 // Label returns the node label. Label may be nil
-func (node *NodeHeader) Label() interface{} { return node.label }
+func (nodehdr *NodeHeader) Label() interface{} { return nodehdr.label }
 
 // GetNodeHeader returns the node header
-func (node *NodeHeader) GetNodeHeader() *NodeHeader { return node }
+func (nodehdr *NodeHeader) GetNodeHeader() *NodeHeader { return nodehdr }
 
-func (node *NodeHeader) init() {
-	node.out = make(map[interface{}]*list.List)
-	node.allOut = list.List{}
-	node.in = make(map[interface{}]*list.List)
-	node.allIn = list.List{}
+func (nodehdr *NodeHeader) init() {
+	nodehdr.out = make(map[interface{}]*list.List)
+	nodehdr.allOut = list.List{}
+	nodehdr.in = make(map[interface{}]*list.List)
+	nodehdr.allIn = list.List{}
 }
 
 // BasicNode contains an application defined payload
@@ -116,15 +116,16 @@ type EdgeHeader struct {
 }
 
 // Label returns the edge label. Label may be nil
-func (edge *EdgeHeader) Label() interface{} { return edge.label }
+func (edgehdr *EdgeHeader) Label() interface{} { return edgehdr.label }
 
 // From returns the source node for the edge. This cannot be nil.
-func (edge *EdgeHeader) From() Node { return edge.from }
+func (edgehdr *EdgeHeader) From() Node { return edgehdr.from }
 
 // To returns the target node for the edge. This cannot be nil.
-func (edge *EdgeHeader) To() Node { return edge.to }
+func (edgehdr *EdgeHeader) To() Node { return edgehdr.to }
 
-func (edge *EdgeHeader) GetEdgeHeader() *EdgeHeader { return edge }
+// GetEdhgeHeader returns edge
+func (edgehdr *EdgeHeader) GetEdgeHeader() *EdgeHeader { return edgehdr }
 
 // BasicEdge contains an application-defined payload
 type BasicEdge struct {

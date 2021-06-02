@@ -7,12 +7,12 @@ import (
 
 // DOTRenderer renders a graph in Graphviz dot format
 type DOTRenderer struct {
-	NodeRenderer func(string, *Node, io.Writer) error
-	EdgeRenderer func(string, string, *Edge, io.Writer) error
+	NodeRenderer func(string, Node, io.Writer) error
+	EdgeRenderer func(string, string, Edge, io.Writer) error
 }
 
 // RenderNode renders a node. If node renderer is not set, calls the default renderer
-func (d DOTRenderer) RenderNode(ID string, node *Node, w io.Writer) error {
+func (d DOTRenderer) RenderNode(ID string, node Node, w io.Writer) error {
 	if d.NodeRenderer == nil {
 		return DefaultDOTNodeRender(ID, node, w)
 	}
@@ -20,7 +20,7 @@ func (d DOTRenderer) RenderNode(ID string, node *Node, w io.Writer) error {
 }
 
 // RenderEdge renders an edge. If edge renderer is not set, call the default rendeded
-func (d DOTRenderer) RenderEdge(fromID, toID string, edge *Edge, w io.Writer) error {
+func (d DOTRenderer) RenderEdge(fromID, toID string, edge Edge, w io.Writer) error {
 	if d.EdgeRenderer == nil {
 		return DefaultDOTEdgeRender(fromID, toID, edge, w)
 	}
@@ -30,9 +30,9 @@ func (d DOTRenderer) RenderEdge(fromID, toID string, edge *Edge, w io.Writer) er
 // DefaultDOTNodeRender renders the node with the given ID. If the
 // node has a label, it uses that label, otherwise node is not
 // labeled.
-func DefaultDOTNodeRender(ID string, node *Node, w io.Writer) error {
-	if node.Label() != nil {
-		_, err := fmt.Fprintf(w, "  %s [label=\"%v\"];\n", ID, node.Label())
+func DefaultDOTNodeRender(ID string, node Node, w io.Writer) error {
+	if node.GetNodeHeader().Label() != nil {
+		_, err := fmt.Fprintf(w, "  %s [label=\"%v\"];\n", ID, node.GetNodeHeader().Label())
 		return err
 	}
 	_, err := fmt.Fprintf(w, "  %s;\n", ID)
@@ -41,8 +41,8 @@ func DefaultDOTNodeRender(ID string, node *Node, w io.Writer) error {
 
 // DefaultDOTEdgeRender renders the edge with a label if there is
 // one, or without a label if there is not a label.
-func DefaultDOTEdgeRender(fromNode, toNode string, edge *Edge, w io.Writer) error {
-	lbl := edge.Label()
+func DefaultDOTEdgeRender(fromNode, toNode string, edge Edge, w io.Writer) error {
+	lbl := edge.GetEdgeHeader().Label()
 	if lbl != nil {
 		if _, err := fmt.Fprintf(w, "  %s -> %s [label=\"%s\"];\n", fromNode, toNode, lbl); err != nil {
 			return err
@@ -65,7 +65,7 @@ func (d DOTRenderer) Render(g *Graph, graphName string, out io.Writer) error {
 	}
 
 	// Give nodes unique IDs for the graph
-	nodeMap := map[*Node]string{}
+	nodeMap := map[Node]string{}
 	x := 0
 	for itr := g.AllNodes(); itr.HasNext(); {
 		node := itr.Next()
@@ -78,10 +78,10 @@ func (d DOTRenderer) Render(g *Graph, graphName string, out io.Writer) error {
 	}
 	for itr := g.AllNodes(); itr.HasNext(); {
 		node := itr.Next()
-		for edgeItr := node.AllOutgoingEdges(); edgeItr.HasNext(); {
+		for edgeItr := node.GetNodeHeader().AllOutgoingEdges(); edgeItr.HasNext(); {
 			edge := edgeItr.Next()
-			fromNodeId := nodeMap[edge.From()]
-			toNodeId := nodeMap[edge.To()]
+			fromNodeId := nodeMap[edge.GetEdgeHeader().From()]
+			toNodeId := nodeMap[edge.GetEdgeHeader().To()]
 			if err := d.RenderEdge(fromNodeId, toNodeId, edge, out); err != nil {
 				return err
 			}

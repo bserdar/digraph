@@ -6,6 +6,12 @@ import (
 
 // Graph represents a labeled or unlabeled directed graph. Zero value
 // for Graph is an empty graph ready to use.
+//
+// The nodes of the graph are instances of the Node interface. Each node
+// is a pointer to a struct that includes a NodeHeader.
+//
+// The edges between nodes are instances of the Edge interface. Each
+// edge is a pointer to a struct that includes an EdgeHeader
 type Graph struct {
 	nodesByLabel map[interface{}]*list.List
 	allNodes     list.List
@@ -13,32 +19,34 @@ type Graph struct {
 
 // Node is a node of a directed graph.
 //
-// A Node may have a label. The label is given when the node is
-// created, and cannot be changed. Multiple nodes can have the same
-// label in a graph.
+// Node interface provides a way to get the node header from the underlying struct
+//
+// A Node may have a label. Multiple nodes can have the same label in
+// a graph.
 //
 // Node keeps a list/map of all outgoing and incoming edges. These
 // edges may or may not be labeled. Same label can be used for
 // outgoing and incoming edges.
 //
-// Each node may have an application-defined payload.
-type Node struct {
-	Payload interface{}
+// A Node object can belong to at most one graph. The node must be a
+// pointer to a struct.
+//
+type Node interface {
+	GetNodeHeader() *NodeHeader
 
-	label interface{}
-
-	nodesByLabelEl *list.Element
-	allNodesEl     *list.Element
-	graph          *Graph
-
-	out    map[interface{}]*list.List
-	allOut list.List
-	in     map[interface{}]*list.List
-	allIn  list.List
+	Label() interface{}
+	Remove()
+	SetLabel(label interface{})
+	NextNode(label interface{}) Node
+	PrevNode(label interface{}) Node
+	AllOutgoingEdges() Edges
+	AllIncomingEdges() Edges
+	AllOutgoingEdgesWithLabel(label interface{}) Edges
+	AllIncomingEdgesWithLabel(label interface{}) Edges
 }
 
 // Edge represents a labeled or unlabeled directed edge between two
-// nodes of a graph.
+// nodes of a graph
 //
 // An edge has from and to nodes, which are defined when edge is
 // created, and connot be changed.
@@ -46,13 +54,60 @@ type Node struct {
 // An edge may have a label. Same label can be reused on multiple
 // edges outgoing from a node.
 //
-// An edge may have an application defined payload
-type Edge struct {
-	Payload interface{}
+type Edge interface {
+	GetEdgeHeader() *EdgeHeader
 
+	Label() interface{}
+	SetLabel(interface{})
+	From() Node
+	To() Node
+	Remove()
+	SetTo(node Node)
+	SetFrom(node Node)
+}
+
+// NodeHeader keeps the links of the node within the graph. Every node
+// of the graph must include a NodeHeader
+type NodeHeader struct {
 	label interface{}
-	from  *Node
-	to    *Node
+
+	nodesByLabelEl *list.Element
+	allNodesEl     *list.Element
+	graph          *Graph
+	node           Node
+
+	out    map[interface{}]*list.List
+	allOut list.List
+	in     map[interface{}]*list.List
+	allIn  list.List
+}
+
+// Label returns the node label. Label may be nil
+func (node *NodeHeader) Label() interface{} { return node.label }
+
+// GetNodeHeader returns the node header
+func (node *NodeHeader) GetNodeHeader() *NodeHeader { return node }
+
+func (node *NodeHeader) init() {
+	node.out = make(map[interface{}]*list.List)
+	node.allOut = list.List{}
+	node.in = make(map[interface{}]*list.List)
+	node.allIn = list.List{}
+}
+
+// BasicNode contains an application defined payload
+type BasicNode struct {
+	NodeHeader
+	Payload interface{}
+}
+
+// EdgeHeader keeps the links of an edge within the graph. Every edge
+// of the graph must include an EdgeHeader
+type EdgeHeader struct {
+	label interface{}
+	from  Node
+	to    Node
+	edge  Edge
 
 	outEl    *list.Element
 	allOutEl *list.Element
@@ -61,16 +116,21 @@ type Edge struct {
 }
 
 // Label returns the edge label. Label may be nil
-func (edge *Edge) Label() interface{} { return edge.label }
+func (edge *EdgeHeader) Label() interface{} { return edge.label }
 
 // From returns the source node for the edge. This cannot be nil.
-func (edge *Edge) From() *Node { return edge.from }
+func (edge *EdgeHeader) From() Node { return edge.from }
 
 // To returns the target node for the edge. This cannot be nil.
-func (edge *Edge) To() *Node { return edge.to }
+func (edge *EdgeHeader) To() Node { return edge.to }
 
-// Label returns the node label. Label may be nil
-func (node *Node) Label() interface{} { return node.label }
+func (edge *EdgeHeader) GetEdgeHeader() *EdgeHeader { return edge }
+
+// BasicEdge contains an application-defined payload
+type BasicEdge struct {
+	EdgeHeader
+	Payload interface{}
+}
 
 func (g *Graph) init() *Graph {
 	if g.nodesByLabel == nil {
@@ -94,6 +154,7 @@ func (g *Graph) AllNodes() Nodes {
 
 // AllNodesWithLabel returns an iterator over all nodes with the given label
 func (g *Graph) AllNodesWithLabel(label interface{}) Nodes {
+	g.init()
 	lst := g.nodesByLabel[label]
 	if lst == nil {
 		return emptyNodes{}
@@ -101,199 +162,228 @@ func (g *Graph) AllNodesWithLabel(label interface{}) Nodes {
 	return &listNodes{at: lst.Front()}
 }
 
-// NewNode creates a new node with the given label and payload. Both
-// parameters are optional and can be nil. Returns the new node in the graph.
-// This method runs in constant-time.
-func (g *Graph) NewNode(label, payload interface{}) *Node {
-	g.init()
-	node := &Node{Payload: payload,
-		label: label,
-		graph: g,
-		out:   make(map[interface{}]*list.List),
-		in:    make(map[interface{}]*list.List),
-	}
-	llist := g.nodesByLabel[label]
-	if llist == nil {
-		llist = list.New()
-		g.nodesByLabel[label] = llist
-	}
-	node.nodesByLabelEl = llist.PushBack(node)
-	node.allNodesEl = g.allNodes.PushBack(node)
+// NewBasicNode creates a new BasicNode with the given label and payload. Both
+// parameters are optional and can be nil. Returns the new node
+func NewBasicNode(label, payload interface{}) *BasicNode {
+	node := &BasicNode{Payload: payload}
+	node.label = label
 	return node
 }
 
-// NewEdge creates a new edge between the two nodes. Both nodes must
-// be in the same graph g. From and to nodes can be the same node. An
-// edge may have a label and payload. Both are optional, and can be nil.
-// This method runs in constant-time.
+// AddNode adds the node to the graph. The node must not belong to another graph
+func (g *Graph) AddNode(node Node) {
+	g.init()
+	nh := node.GetNodeHeader()
+	if nh.graph != nil {
+		panic("Node belongs to a graph already")
+	}
+	nh.init()
+	nh.graph = g
+	nh.node = node
+	llist := g.nodesByLabel[nh.label]
+	if llist == nil {
+		llist = list.New()
+		g.nodesByLabel[nh.label] = llist
+	}
+	nh.nodesByLabelEl = llist.PushBack(node)
+	nh.allNodesEl = g.allNodes.PushBack(node)
+}
+
+// NewBasicEdge creates a new basic edge with a label and
+// payload. Both are optional, and can be nil.
 //
 // Returns the new edge.
-func (g *Graph) NewEdge(from, to *Node, label, payload interface{}) *Edge {
-	g.init()
-	if from.graph != g {
-		panic("from is not in the graph")
-	}
-	if to.graph != g {
-		panic("to is not in the graph")
-	}
-	edge := &Edge{Payload: payload,
-		label: label,
-		from:  from,
-		to:    to,
-	}
-	edge.attachFrom(from)
-	edge.attachTo(to)
+func NewBasicEdge(label, payload interface{}) *BasicEdge {
+	edge := &BasicEdge{Payload: payload}
+	edge.label = label
 	return edge
 }
 
-func (edge *Edge) attachFrom(from *Node) {
-	lst := from.out[edge.label]
-	if lst == nil {
-		lst = list.New()
-		from.out[edge.label] = lst
+// AddEdge adds the given edge to the graph.
+func (g *Graph) AddEdge(from, to Node, edge Edge) {
+	g.init()
+	if from.GetNodeHeader().graph != g {
+		panic("from is not in the graph")
 	}
-	edge.outEl = lst.PushBack(edge)
-	edge.allOutEl = from.allOut.PushBack(edge)
+	if to.GetNodeHeader().graph != g {
+		panic("to is not in the graph")
+	}
+	edge.GetEdgeHeader().edge = edge
+	edge.GetEdgeHeader().attachFrom(from)
+	edge.GetEdgeHeader().attachTo(to)
 }
 
-func (edge *Edge) attachTo(to *Node) {
-	lst := to.in[edge.label]
+func (edgehdr *EdgeHeader) attachFrom(from Node) {
+	fromhdr := from.GetNodeHeader()
+	lst := fromhdr.out[edgehdr.label]
 	if lst == nil {
 		lst = list.New()
-		to.in[edge.label] = lst
+		fromhdr.out[edgehdr.label] = lst
 	}
-	edge.inEl = lst.PushBack(edge)
-	edge.allInEl = to.allIn.PushBack(edge)
+	edgehdr.from = from
+	edgehdr.outEl = lst.PushBack(edgehdr.edge)
+	edgehdr.allOutEl = fromhdr.allOut.PushBack(edgehdr.edge)
+}
+
+func (edgehdr *EdgeHeader) attachTo(to Node) {
+	tohdr := to.GetNodeHeader()
+	lst := tohdr.in[edgehdr.label]
+	if lst == nil {
+		lst = list.New()
+		tohdr.in[edgehdr.label] = lst
+	}
+	edgehdr.to = to
+	edgehdr.inEl = lst.PushBack(edgehdr.edge)
+	edgehdr.allInEl = tohdr.allIn.PushBack(edgehdr.edge)
 }
 
 // Remove the edge. The edge is removed from the source and target
 // nodes. This method runs in constant-time.
-func (edge *Edge) Remove() {
-	edge.detachFrom()
-	edge.detachTo()
+func (edgehdr *EdgeHeader) Remove() {
+	edgehdr.detachFrom()
+	edgehdr.detachTo()
 }
 
-func (edge *Edge) detachFrom() {
-	if edge.from != nil {
-		lst := edge.from.out[edge.label]
-		lst.Remove(edge.outEl)
+func (edgehdr *EdgeHeader) detachFrom() {
+	if edgehdr.from != nil {
+		lst := edgehdr.from.GetNodeHeader().out[edgehdr.label]
+		lst.Remove(edgehdr.outEl)
 		if lst.Len() == 0 {
-			delete(edge.from.out, edge.label)
+			delete(edgehdr.from.GetNodeHeader().out, edgehdr.label)
 		}
-		edge.from.allOut.Remove(edge.allOutEl)
-		edge.from = nil
+		edgehdr.from.GetNodeHeader().allOut.Remove(edgehdr.allOutEl)
+		edgehdr.from = nil
 	}
 }
 
-func (edge *Edge) detachTo() {
-	if edge.to != nil {
-		lst := edge.to.in[edge.label]
-		lst.Remove(edge.inEl)
+func (edgehdr *EdgeHeader) detachTo() {
+	if edgehdr.to != nil {
+		lst := edgehdr.to.GetNodeHeader().in[edgehdr.label]
+		lst.Remove(edgehdr.inEl)
 		if lst.Len() == 0 {
-			delete(edge.to.in, edge.label)
+			delete(edgehdr.to.GetNodeHeader().in, edgehdr.label)
 		}
-		edge.to.allIn.Remove(edge.allInEl)
-		edge.to = nil
+		edgehdr.to.GetNodeHeader().allIn.Remove(edgehdr.allInEl)
+		edgehdr.to = nil
 	}
 }
 
 // SetTo redirects the target node of the edge
-func (edge *Edge) SetTo(node *Node) {
-	if node.graph != edge.from.graph {
+func (edgehdr *EdgeHeader) SetTo(node Node) {
+	if node.GetNodeHeader().graph != edgehdr.from.GetNodeHeader().graph {
 		panic("Not in same graph")
 	}
-	edge.detachTo()
-	edge.attachTo(node)
+	edgehdr.detachTo()
+	edgehdr.attachTo(node)
 }
 
 // SetFrom sets the source node of the edge
-func (edge *Edge) SetFrom(node *Node) {
-	if node.graph != edge.to.graph {
+func (edgehdr *EdgeHeader) SetFrom(node Node) {
+	if node.GetNodeHeader().graph != edgehdr.to.GetNodeHeader().graph {
 		panic("Not in same graph")
 	}
-	edge.detachFrom()
-	edge.attachFrom(node)
+	edgehdr.detachFrom()
+	edgehdr.attachFrom(node)
+}
+
+// SetLabel sets the edge label
+func (edgehdr *EdgeHeader) SetLabel(label interface{}) {
+	from := edgehdr.from
+	to := edgehdr.to
+	edgehdr.detachFrom()
+	edgehdr.detachTo()
+	edgehdr.label = label
+	if from != nil {
+		edgehdr.attachFrom(from)
+	}
+	if to != nil {
+		edgehdr.attachTo(to)
+	}
 }
 
 // Remove the node. The node and all the edges incoming and outgoing
 // from this node are also removed. This method runs in O(n) time
 // where n is the number of adjacent edges.
-func (node *Node) Remove() {
-	if node.graph == nil {
+func (nodehdr *NodeHeader) Remove() {
+	if nodehdr.graph == nil {
 		panic("Node is not in a graph")
 	}
-	for edge := node.allOut.Front(); edge != nil; edge = node.allOut.Front() {
-		edge.Value.(*Edge).Remove()
+	for edge := nodehdr.allOut.Front(); edge != nil; edge = nodehdr.allOut.Front() {
+		edge.Value.(Edge).GetEdgeHeader().Remove()
 	}
-	for edge := node.allIn.Front(); edge != nil; edge = node.allIn.Front() {
-		edge.Value.(*Edge).Remove()
+	for edge := nodehdr.allIn.Front(); edge != nil; edge = nodehdr.allIn.Front() {
+		edge.Value.(Edge).GetEdgeHeader().Remove()
 	}
-	lst := node.graph.nodesByLabel[node.label]
-	lst.Remove(node.nodesByLabelEl)
+	lst := nodehdr.graph.nodesByLabel[nodehdr.label]
+	lst.Remove(nodehdr.nodesByLabelEl)
 	if lst.Len() == 0 {
-		delete(node.graph.nodesByLabel, node.label)
+		delete(nodehdr.graph.nodesByLabel, nodehdr.label)
 	}
-	node.graph.allNodes.Remove(node.allNodesEl)
-	node.graph = nil
+	nodehdr.graph.allNodes.Remove(nodehdr.allNodesEl)
+	nodehdr.graph = nil
 }
 
 // SetLabel sets the label of the node
-func (node *Node) SetLabel(label interface{}) {
-	lst := node.graph.nodesByLabel[node.label]
-	lst.Remove(node.nodesByLabelEl)
-	node.label = label
-	lst = node.graph.nodesByLabel[node.label]
-	if lst == nil {
-		lst = list.New()
-		node.graph.nodesByLabel[node.label] = lst
+func (nodehdr *NodeHeader) SetLabel(label interface{}) {
+	if nodehdr.graph != nil {
+		lst := nodehdr.graph.nodesByLabel[nodehdr.label]
+		lst.Remove(nodehdr.nodesByLabelEl)
 	}
-	node.nodesByLabelEl = lst.PushBack(node)
+	nodehdr.label = label
+	if nodehdr.graph != nil {
+		lst := nodehdr.graph.nodesByLabel[nodehdr.label]
+		if lst == nil {
+			lst = list.New()
+			nodehdr.graph.nodesByLabel[nodehdr.label] = lst
+		}
+		nodehdr.nodesByLabelEl = lst.PushBack(nodehdr.node)
+	}
 }
 
 // NextNode returns the next node reached following the edge with the
 // given label. If there is no such node, returns nil. If there are
 // multiple, panics. This runs in constant time.
-func (node *Node) NextNode(label interface{}) *Node {
-	nxt := node.out[label]
+func (nodehdr *NodeHeader) NextNode(label interface{}) Node {
+	nxt := nodehdr.out[label]
 	if nxt == nil {
 		return nil
 	}
 	if nxt.Len() > 1 {
 		panic("Multiple edges with given label")
 	}
-	return nxt.Front().Value.(*Edge).to
+	return nxt.Front().Value.(Edge).GetEdgeHeader().to
 }
 
 // PrevNode returns the node that reaches this node following the edge
 // with the given label. If there is no such node, returns nil. If
 // there are multiple, panics. This runs in constant-time.
-func (node *Node) PrevNode(label interface{}) *Node {
-	prv := node.in[label]
+func (nodehdr *NodeHeader) PrevNode(label interface{}) Node {
+	prv := nodehdr.in[label]
 	if prv == nil {
 		return nil
 	}
 	if prv.Len() > 1 {
 		panic("Multiple edges with given label")
 	}
-	return prv.Front().Value.(*Edge).from
+	return prv.Front().Value.(Edge).GetEdgeHeader().from
 }
 
 // AllOutgoingEdges returns an iterator over all outgoing edges of the
 // node. Never returns nil.
-func (node *Node) AllOutgoingEdges() Edges {
-	return &listEdges{at: node.allOut.Front()}
+func (nodehdr *NodeHeader) AllOutgoingEdges() Edges {
+	return &listEdges{at: nodehdr.allOut.Front()}
 }
 
 // AllIncomingEdges returns an iterator over all the incoming edges of
 // the node. Never returns nil.
-func (node *Node) AllIncomingEdges() Edges {
-	return &listEdges{at: node.allIn.Front()}
+func (nodehdr *NodeHeader) AllIncomingEdges() Edges {
+	return &listEdges{at: nodehdr.allIn.Front()}
 }
 
 // AllOutgoingEdgesWithLabel returns an iterator over all outgoing
 // edges with the given label. Never returns nil.
-func (node *Node) AllOutgoingEdgesWithLabel(label interface{}) Edges {
-	lst := node.out[label]
+func (nodehdr *NodeHeader) AllOutgoingEdgesWithLabel(label interface{}) Edges {
+	lst := nodehdr.out[label]
 	if lst == nil {
 		return emptyEdges{}
 	}
@@ -302,8 +392,8 @@ func (node *Node) AllOutgoingEdgesWithLabel(label interface{}) Edges {
 
 // AllIncomingEdgesWithLabel returns an iterator over all incoming
 // edges with the given label. Never returns nil.
-func (node *Node) AllIncomingEdgesWithLabel(label interface{}) Edges {
-	lst := node.in[label]
+func (nodehdr *NodeHeader) AllIncomingEdgesWithLabel(label interface{}) Edges {
+	lst := nodehdr.in[label]
 	if lst == nil {
 		return emptyEdges{}
 	}

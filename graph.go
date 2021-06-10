@@ -34,6 +34,7 @@ type Graph struct {
 type Node interface {
 	GetNodeHeader() *NodeHeader
 
+	GetGraph() *Graph
 	Label() interface{}
 	Remove()
 	SetLabel(label interface{})
@@ -81,6 +82,9 @@ type NodeHeader struct {
 	in     map[interface{}]*list.List
 	allIn  list.List
 }
+
+// GetGraph returns the graph of the node
+func (nodehdr *NodeHeader) GetGraph() *Graph { return nodehdr.graph }
 
 // Label returns the node label. Label may be nil
 func (nodehdr *NodeHeader) Label() interface{} { return nodehdr.label }

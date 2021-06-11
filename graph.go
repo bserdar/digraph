@@ -152,6 +152,16 @@ func New() *Graph {
 // Len returns the number of nodes in the graph
 func (g *Graph) Len() int { return g.allNodes.Len() }
 
+// Import the given graph into this graph. This operation direcly
+// modifies the given graph. After the operation, in has no nodes.
+func (g *Graph) Import(in *Graph) {
+	for nodeEl := in.allNodes.Front(); nodeEl != nil; {
+		node := nodeEl.Value.(Node)
+		node.GetNodeHeader().detachNode()
+		g.attachNode(node)
+	}
+}
+
 // AllNodes returns an iterator over all nodes of a graph
 func (g *Graph) AllNodes() Nodes {
 	return &listNodes{at: g.allNodes.Front()}
@@ -178,11 +188,15 @@ func NewBasicNode(label, payload interface{}) *BasicNode {
 // AddNode adds the node to the graph. The node must not belong to another graph
 func (g *Graph) AddNode(node Node) {
 	g.init()
+	node.GetNodeHeader().init()
+	g.attachNode(node)
+}
+
+func (g *Graph) attachNode(node Node) {
 	nh := node.GetNodeHeader()
 	if nh.graph != nil {
 		panic("Node belongs to a graph already")
 	}
-	nh.init()
 	nh.graph = g
 	nh.node = node
 	llist := g.nodesByLabel[nh.label]
@@ -319,6 +333,10 @@ func (nodehdr *NodeHeader) Remove() {
 	for edge := nodehdr.allIn.Front(); edge != nil; edge = nodehdr.allIn.Front() {
 		edge.Value.(Edge).GetEdgeHeader().Remove()
 	}
+	nodehdr.detachNode()
+}
+
+func (nodehdr *NodeHeader) detachNode() {
 	lst := nodehdr.graph.nodesByLabel[nodehdr.label]
 	lst.Remove(nodehdr.nodesByLabelEl)
 	if lst.Len() == 0 {

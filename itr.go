@@ -4,41 +4,37 @@ import (
 	"container/list"
 )
 
-// Nodes iterates through a list of nodes
-type Nodes interface {
+// Nodes is a convenience wrapper aroung NodeItr for chained methods
+type Nodes struct {
+	NodeIterator
+}
+
+// All returns all remaining nodes
+func (n Nodes) All() []Node {
+	ret := make([]Node, 0)
+	for n.HasNext() {
+		ret = append(ret, n.Next())
+	}
+	return ret
+}
+
+// NodeIterator iterates through a list of nodes
+type NodeIterator interface {
 	// Returns if there are more nodes to go through
 	HasNext() bool
 	// If HasNext is true, returns the next node and advances. Otherwise, panics
 	Next() Node
-	// Returns all remaining nodes
-	All() []Node
 }
-
-type emptyNodes struct{}
-
-func (emptyNodes) HasNext() bool { return false }
-func (emptyNodes) Next() Node    { panic("No more nodes") }
-func (emptyNodes) All() []Node   { return nil }
 
 type listNodes struct {
 	at *list.Element
 }
 
-func (l *listNodes) HasNext() bool {
-	return l.at != nil
-}
+func (l *listNodes) HasNext() bool { return l.at != nil }
 
 func (l *listNodes) Next() Node {
 	ret := l.at.Value.(Node)
 	l.at = l.at.Next()
-	return ret
-}
-
-func (l *listNodes) All() []Node {
-	ret := make([]Node, 0)
-	for ; l.at != nil; l.at = l.at.Next() {
-		ret = append(ret, l.at.Value.(Node))
-	}
 	return ret
 }
 
@@ -49,105 +45,116 @@ type arrNodes struct {
 
 func (a *arrNodes) HasNext() bool { return a.at < len(a.arr) }
 func (a *arrNodes) Next() Node    { ret := a.arr[a.at]; a.at++; return ret }
-func (a *arrNodes) All() []Node   { return a.arr[a.at:] }
 
-type edgeNodes struct {
-	edge   *list.Element
-	seen   map[Node]struct{}
-	node   func(Edge) Node
-	seeked bool
+type filterNodes struct {
+	source Nodes
+	filter func(Node) bool
+
+	nextReady bool
+	next      Node
 }
 
-func (a *edgeNodes) HasNext() bool {
-	if a.seeked {
-		return true
+func (a *filterNodes) adv() {
+	if a.nextReady {
+		return
 	}
-	if a.seen == nil {
-		a.seen = make(map[Node]struct{})
-	}
-	for {
-		if a.edge == nil {
-			return false
+	a.nextReady = true
+	a.next = nil
+	for a.source.HasNext() {
+		node := a.source.Next()
+		if a.filter(node) {
+			a.next = node
+			return
 		}
-		node := a.node(a.edge.Value.(Edge))
-		if _, seen := a.seen[node]; !seen {
-			a.seeked = true
-			return true
+	}
+}
+
+func (a *filterNodes) HasNext() bool {
+	a.adv()
+	return a.next != nil
+}
+
+func (a *filterNodes) Next() Node {
+	a.adv()
+	if a.next == nil {
+		panic("Next node not available")
+	}
+	a.nextReady = false
+	return a.next
+}
+
+// Select returns a subset of the given nodes containing only those nodes selected by the predicate
+func (n Nodes) Select(predicate func(Node) bool) Nodes {
+	return Nodes{&filterNodes{source: n, filter: predicate}}
+}
+
+// NewNodes returns a Nodes for the given array of nodes
+func NewNodes(nodes ...Node) Nodes { return Nodes{&arrNodes{arr: nodes}} }
+
+// Unique filters the nodes so only unique nodes are returned
+func (n Nodes) Uniqu() Nodes {
+	seen := make(map[Node]struct{})
+	return n.Select(func(node Node) bool {
+		_, ok := seen[node]
+		if !ok {
+			seen[node] = struct{}{}
 		}
-		a.edge = a.edge.Next()
-	}
+		return !ok
+	})
 }
 
-func (a *edgeNodes) Next() Node {
-	if !a.seeked {
-		a.HasNext()
-	}
-	if a.seen == nil {
-		a.seen = make(map[Node]struct{})
-	}
-	node := a.node(a.edge.Value.(Edge))
-	a.seen[node] = struct{}{}
-	a.seeked = false
-	return node
+type Edges struct {
+	EdgeIterator
 }
 
-func (a *edgeNodes) All() []Node {
-	ret := make([]Node, 0)
-	for a.HasNext() {
-		ret = append(ret, a.Next())
+// All returns all remaining edges
+func (e Edges) All() []Edge {
+	ret := make([]Edge, 0)
+	for e.HasNext() {
+		ret = append(ret, e.Next())
 	}
 	return ret
 }
 
-// Edges iterates through a list of edges
-type Edges interface {
+type edgeNodeSelector struct {
+	source     EdgeIterator
+	selectNode func(Edge) Node
+}
+
+func (e *edgeNodeSelector) HasNext() bool { return e.source.HasNext() }
+func (e *edgeNodeSelector) Next() Node    { return e.selectNode(e.source.Next()) }
+
+// Targets returns a node iterator that goes through the target nodes
+func (e Edges) Targets() Nodes {
+	return Nodes{&edgeNodeSelector{source: e, selectNode: func(e Edge) Node { return e.To() }}}
+}
+
+// Sources returns a node iterator that goes through the source nodes
+func (e Edges) Sources() Nodes {
+	return Nodes{&edgeNodeSelector{source: e, selectNode: func(e Edge) Node { return e.From() }}}
+}
+
+// EdgeIterator iterates through a list of edges
+type EdgeIterator interface {
 	// Returns if there are more edges to go through
 	HasNext() bool
 	// If HasNext is true, returns the next edge and advances. Otherwise panics
 	Next() Edge
-	// Returns all remaining edges
-	All() []Edge
-
-	// Returns a node iterator that will go through each target node once
-	Targets() Nodes
-	// Returns a node iterator that will go through each source node once
-	Sources() Nodes
 }
 
 type emptyEdges struct{}
 
-func (emptyEdges) HasNext() bool  { return false }
-func (emptyEdges) Next() Edge     { panic("No more edges") }
-func (emptyEdges) All() []Edge    { return nil }
-func (emptyEdges) Targets() Nodes { return &emptyNodes{} }
-func (emptyEdges) Sources() Nodes { return &emptyNodes{} }
+func (emptyEdges) HasNext() bool { return false }
+func (emptyEdges) Next() Edge    { panic("No more edges") }
 
 type listEdges struct {
 	at *list.Element
 }
 
-func (l *listEdges) HasNext() bool {
-	return l.at != nil
-}
+func (l *listEdges) HasNext() bool { return l.at != nil }
 
 func (l *listEdges) Next() Edge {
 	ret := l.at.Value.(Edge)
 	l.at = l.at.Next()
 	return ret
-}
-
-func (l *listEdges) All() []Edge {
-	ret := make([]Edge, 0)
-	for ; l.at != nil; l.at = l.at.Next() {
-		ret = append(ret, l.at.Value.(Edge))
-	}
-	return ret
-}
-
-func (l *listEdges) Targets() Nodes {
-	return &edgeNodes{edge: l.at, node: func(e Edge) Node { return e.To() }, seeked: l.at != nil}
-}
-
-func (l *listEdges) Sources() Nodes {
-	return &edgeNodes{edge: l.at, node: func(e Edge) Node { return e.From() }, seeked: l.at != nil}
 }

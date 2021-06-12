@@ -7,9 +7,11 @@ import (
 func TestBasicGraph(t *testing.T) {
 	g := New()
 
-	n1 := g.NewBasicNode("1", nil)
-	n2 := g.NewBasicNode("2", nil)
-	g.NewBasicEdge(n1, n2, "label", nil)
+	n1 := NewBasicNode("1", nil)
+	g.AddNode(n1)
+	n2 := NewBasicNode("2", nil)
+	g.AddNode(n2)
+	g.AddEdge(n1, n2, NewBasicEdge("label", nil))
 
 	edges := n1.AllOutgoingEdges().All()
 	if len(edges) != 1 {

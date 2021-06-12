@@ -164,7 +164,7 @@ func (g *Graph) Import(in *Graph) {
 
 // AllNodes returns an iterator over all nodes of a graph
 func (g *Graph) AllNodes() Nodes {
-	return &listNodes{at: g.allNodes.Front()}
+	return Nodes{&listNodes{at: g.allNodes.Front()}}
 }
 
 // AllNodesWithLabel returns an iterator over all nodes with the given label
@@ -172,9 +172,9 @@ func (g *Graph) AllNodesWithLabel(label interface{}) Nodes {
 	g.init()
 	lst := g.nodesByLabel[label]
 	if lst == nil {
-		return emptyNodes{}
+		return NewNodes()
 	}
-	return &listNodes{at: lst.Front()}
+	return Nodes{&listNodes{at: lst.Front()}}
 }
 
 // NewBasicNode creates a new BasicNode with the given label and payload. Both
@@ -394,13 +394,13 @@ func (nodehdr *NodeHeader) PrevNode(label interface{}) Node {
 // AllOutgoingEdges returns an iterator over all outgoing edges of the
 // node. Never returns nil.
 func (nodehdr *NodeHeader) AllOutgoingEdges() Edges {
-	return &listEdges{at: nodehdr.allOut.Front()}
+	return Edges{&listEdges{at: nodehdr.allOut.Front()}}
 }
 
 // AllIncomingEdges returns an iterator over all the incoming edges of
 // the node. Never returns nil.
 func (nodehdr *NodeHeader) AllIncomingEdges() Edges {
-	return &listEdges{at: nodehdr.allIn.Front()}
+	return Edges{&listEdges{at: nodehdr.allIn.Front()}}
 }
 
 // AllOutgoingEdgesWithLabel returns an iterator over all outgoing
@@ -408,9 +408,9 @@ func (nodehdr *NodeHeader) AllIncomingEdges() Edges {
 func (nodehdr *NodeHeader) AllOutgoingEdgesWithLabel(label interface{}) Edges {
 	lst := nodehdr.out[label]
 	if lst == nil {
-		return emptyEdges{}
+		return Edges{emptyEdges{}}
 	}
-	return &listEdges{at: lst.Front()}
+	return Edges{&listEdges{at: lst.Front()}}
 }
 
 // AllIncomingEdgesWithLabel returns an iterator over all incoming
@@ -418,7 +418,7 @@ func (nodehdr *NodeHeader) AllOutgoingEdgesWithLabel(label interface{}) Edges {
 func (nodehdr *NodeHeader) AllIncomingEdgesWithLabel(label interface{}) Edges {
 	lst := nodehdr.in[label]
 	if lst == nil {
-		return emptyEdges{}
+		return Edges{emptyEdges{}}
 	}
-	return &listEdges{at: lst.Front()}
+	return Edges{&listEdges{at: lst.Front()}}
 }

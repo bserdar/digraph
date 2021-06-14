@@ -60,3 +60,34 @@ func SourcesAmongNodes(nodes []Node, includeDisconnected bool) []Node {
 	}
 	return ret
 }
+
+// Copy creates a copy of source graph in target. If target is an
+// empty graph, the result is a clone of the source graph. If target
+// is not empty, after this operation target gets a subgraph that is a
+// copy of the source
+//
+// copyNode function copies the given node, and returns the new
+// node. The node must not be inserted into the target graph. copyEdge
+// function does the same, creates a copy of the given edge without
+// connecting the edges to any of the nodes. The returned edge will be
+// connected to the matching nodes.
+//
+// Returns a map of nodes where the key is the node in the source
+// graph, and value is the corresponding node in the target graph
+func Copy(target, source *Graph, copyNode func(Node) Node, copyEdge func(Edge) Edge) map[Node]Node {
+	nodeMap := make(map[Node]Node)
+	for nodes := source.AllNodes(); nodes.HasNext(); {
+		oldNode := nodes.Next()
+		newNode := copyNode(oldNode)
+		target.AddNode(newNode)
+		nodeMap[oldNode] = newNode
+	}
+	for nodes := source.AllNodes(); nodes.HasNext(); {
+		oldNode := nodes.Next()
+		for edges := oldNode.AllOutgoingEdges(); edges.HasNext(); {
+			edge := edges.Next()
+			target.AddEdge(nodeMap[edge.From()], nodeMap[edge.To()], copyEdge(edge))
+		}
+	}
+	return nodeMap
+}

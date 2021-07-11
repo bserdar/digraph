@@ -155,7 +155,7 @@ func (g *Graph) Len() int { return g.allNodes.Len() }
 // Import the given graph into this graph. This operation direcly
 // modifies the given graph. After the operation, in has no nodes.
 func (g *Graph) Import(in *Graph) {
-	for nodeEl := in.allNodes.Front(); nodeEl != nil; {
+	for nodeEl := in.allNodes.Front(); nodeEl != nil; nodeEl = in.allNodes.Front() {
 		node := nodeEl.Value.(Node)
 		node.GetNodeHeader().detachNode()
 		g.attachNode(node)

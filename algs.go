@@ -91,3 +91,38 @@ func Copy(target, source *Graph, copyNode func(Node) Node, copyEdge func(Edge) E
 	}
 	return nodeMap
 }
+
+// Project computes a projection of the input graph using the
+// nodeCloner. All the nodes cloned by the nodeCloner will be included
+// in the output. An edge is copied only if both the source and target
+// nodes are peojected.
+//
+// Returns a map of input nodes to output nodes.
+func Project(input, output *Graph, nodeCloner func(Node) Node, edgeCloner func(Edge) Edge) map[Node]Node {
+	outputMap := make(map[Node]Node)
+	for nodes := input.AllNodes(); nodes.HasNext(); {
+		node := nodes.Next()
+		newNode := nodeCloner(node)
+		if newNode != nil {
+			outputMap[node] = newNode
+			output.AddNode(newNode)
+		}
+	}
+	for nodes := input.AllNodes(); nodes.HasNext(); {
+		sourceNode := nodes.Next()
+		newSourceNode, ok := outputMap[sourceNode]
+		if ok {
+			for edges := sourceNode.AllOutgoingEdges(); edges.HasNext(); {
+				sourceEdge := edges.Next()
+				targetNode, ok := outputMap[sourceEdge.To()]
+				if ok {
+					newEdge := edgeCloner(sourceEdge)
+					if newEdge != nil {
+						output.AddEdge(newSourceNode, targetNode, newEdge)
+					}
+				}
+			}
+		}
+	}
+	return outputMap
+}

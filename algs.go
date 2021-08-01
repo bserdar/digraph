@@ -1,62 +1,65 @@
 package digraph
 
-// Sinks returns all nodes that have no outgoing edges. If
-// includeDisconnected is true, includes nodes that are not connected
-// to the graph
-func Sinks(g *Graph, includeDisconnected bool) []Node {
+type NodeIndex struct {
+	nodes        []Node
+	nodesByLabel map[interface{}][]Node
+}
+
+func (n NodeIndex) Len() int {
+	return len(n.nodes)
+}
+
+func (n NodeIndex) Slice() []Node {
+	return n.nodes
+}
+
+func (n NodeIndex) Nodes() Nodes {
+	return Nodes{&NodeArrayIterator{n.nodes}}
+}
+
+func (n *NodeIndex) NodesByLabel(label interface{}) Nodes {
+	if n.nodesByLabel == nil {
+		n.buildNodesByLabel()
+	}
+	return Nodes{&NodeArrayIterator{n.nodesByLabel[label]}}
+}
+
+func (n *NodeIndex) buildNodesByLabel() {
+	n.nodesByLabel = make(map[interface{}][]Node)
+	for _, node := range n.nodes {
+		label := node.GetLabel()
+		n.nodesByLabel[label] = append(n.nodesByLabel[label], node)
+	}
+}
+
+// Sinks returns all nodes that have no outgoing edges.
+func (n *NodeIndex) Sinks() []Node {
 	ret := make([]Node, 0)
-	nodes := g.AllNodes()
+	nodes := n.Nodes()
 	for nodes.HasNext() {
 		node := nodes.Next()
-		if !node.GetNodeHeader().AllOutgoingEdges().HasNext() {
-			if includeDisconnected || node.GetNodeHeader().AllIncomingEdges().HasNext() {
-				ret = append(ret, node)
-			}
+		if !node.HasOutgoingEdges() {
+			ret = append(ret, node)
 		}
 	}
 	return ret
 }
 
-// SinksAmongNodes finds the sink nodes among the given nodes
-func SinksAmongNodes(nodes []Node, includeDisconnected bool) []Node {
-	ret := make([]Node, 0)
-	for _, node := range nodes {
-		if !node.GetNodeHeader().AllOutgoingEdges().HasNext() {
-			if includeDisconnected || node.GetNodeHeader().AllIncomingEdges().HasNext() {
-				ret = append(ret, node)
-			}
+// Sources returns all nodes that have no incoming edges.
+func (n *NodeIndex) Sources() []Node {
+	nodeMap := make(map[Node]struct{})
+	for _, node := range n.nodes {
+		nodeMap[node] = struct{}{}
+	}
+	for _, node := range n.nodes {
+		targets := node.GetAllOutgoingEdges().Targets()
+		for targets.HasNext() {
+			delete(nodeMap, targets.Next())
 		}
 	}
-	return ret
-}
-
-// Sources returns all nodes that have no incoming edges. If
-// includeDisconnected is true, includes nodes that are not connected
-// to the graph
-func Sources(g *Graph, includeDisconnected bool) []Node {
-	ret := make([]Node, 0)
-	nodes := g.AllNodes()
-	for nodes.HasNext() {
-		node := nodes.Next()
-		if !node.GetNodeHeader().AllIncomingEdges().HasNext() {
-			if includeDisconnected || node.GetNodeHeader().AllOutgoingEdges().HasNext() {
-				ret = append(ret, node)
-			}
-		}
-	}
-	return ret
-}
-
-// SourcesAmongNodes returns all nodes that have no incoming edges
-// among the given nodes.
-func SourcesAmongNodes(nodes []Node, includeDisconnected bool) []Node {
-	ret := make([]Node, 0)
-	for _, node := range nodes {
-		if !node.GetNodeHeader().AllIncomingEdges().HasNext() {
-			if includeDisconnected || node.GetNodeHeader().AllOutgoingEdges().HasNext() {
-				ret = append(ret, node)
-			}
-		}
+	ret := make([]Node, 0, len(nodeMap))
+	for node := range nodeMap {
+		ret = append(ret, node)
 	}
 	return ret
 }
@@ -67,62 +70,38 @@ func SourcesAmongNodes(nodes []Node, includeDisconnected bool) []Node {
 // copy of the source
 //
 // copyNode function copies the given node, and returns the new
-// node. The node must not be inserted into the target graph. copyEdge
-// function does the same, creates a copy of the given edge without
-// connecting the edges to any of the nodes. The returned edge will be
-// connected to the matching nodes.
+// node. If it returns nil, the node is not copied.  copyEdge function
+// does the same, creates a copy of the given edge without connecting
+// the edges to any of the nodes. The returned edge will be connected
+// to the matching nodes.
 //
 // Returns a map of nodes where the key is the node in the source
 // graph, and value is the corresponding node in the target graph
-func Copy(target, source *Graph, copyNode func(Node) Node, copyEdge func(Edge) Edge) map[Node]Node {
+func (n *NodeIndex) Copy(target *Graph, copyNode func(Node) Node, copyEdge func(Edge) Edge) map[Node]Node {
 	nodeMap := make(map[Node]Node)
-	for nodes := source.AllNodes(); nodes.HasNext(); {
-		oldNode := nodes.Next()
+	for _, oldNode := range n.nodes {
 		newNode := copyNode(oldNode)
-		target.AddNode(newNode)
-		nodeMap[oldNode] = newNode
-	}
-	for nodes := source.AllNodes(); nodes.HasNext(); {
-		oldNode := nodes.Next()
-		for edges := oldNode.AllOutgoingEdges(); edges.HasNext(); {
-			edge := edges.Next()
-			target.AddEdge(nodeMap[edge.From()], nodeMap[edge.To()], copyEdge(edge))
-		}
-	}
-	return nodeMap
-}
-
-// Project computes a projection of the input graph using the
-// nodeCloner. All the nodes cloned by the nodeCloner will be included
-// in the output. An edge is copied only if both the source and target
-// nodes are peojected.
-//
-// Returns a map of input nodes to output nodes.
-func Project(input, output *Graph, nodeCloner func(Node) Node, edgeCloner func(Edge) Edge) map[Node]Node {
-	outputMap := make(map[Node]Node)
-	for nodes := input.AllNodes(); nodes.HasNext(); {
-		node := nodes.Next()
-		newNode := nodeCloner(node)
 		if newNode != nil {
-			outputMap[node] = newNode
-			output.AddNode(newNode)
+			target.AddNode(newNode)
+			nodeMap[oldNode] = newNode
 		}
 	}
-	for nodes := input.AllNodes(); nodes.HasNext(); {
-		sourceNode := nodes.Next()
-		newSourceNode, ok := outputMap[sourceNode]
-		if ok {
-			for edges := sourceNode.AllOutgoingEdges(); edges.HasNext(); {
-				sourceEdge := edges.Next()
-				targetNode, ok := outputMap[sourceEdge.To()]
-				if ok {
-					newEdge := edgeCloner(sourceEdge)
-					if newEdge != nil {
-						output.AddEdge(newSourceNode, targetNode, newEdge)
-					}
-				}
+	for _, oldNode := range n.nodes {
+		newNode := nodeMap[oldNode]
+		if newNode == nil {
+			continue
+		}
+		for edges := oldNode.GetAllOutgoingEdges(); edges.HasNext(); {
+			edge := edges.Next()
+			newTarget := nodeMap[edge.GetTo()]
+			if newTarget == nil {
+				continue
+			}
+			newEdge := copyEdge(edge)
+			if newEdge != nil {
+				Connect(newNode, newTarget, copyEdge(edge))
 			}
 		}
 	}
-	return outputMap
+	return nodeMap
 }

@@ -31,8 +31,8 @@ func (d DOTRenderer) RenderEdge(fromID, toID string, edge Edge, w io.Writer) err
 // node has a label, it uses that label, otherwise node is not
 // labeled.
 func DefaultDOTNodeRender(ID string, node Node, w io.Writer) error {
-	if node.GetNodeHeader().Label() != nil {
-		_, err := fmt.Fprintf(w, "  %s [label=\"%v\"];\n", ID, node.GetNodeHeader().Label())
+	if node.GetLabel() != nil {
+		_, err := fmt.Fprintf(w, "  %s [label=\"%v\"];\n", ID, node.GetLabel())
 		return err
 	}
 	_, err := fmt.Fprintf(w, "  %s;\n", ID)
@@ -42,7 +42,7 @@ func DefaultDOTNodeRender(ID string, node Node, w io.Writer) error {
 // DefaultDOTEdgeRender renders the edge with a label if there is
 // one, or without a label if there is not a label.
 func DefaultDOTEdgeRender(fromNode, toNode string, edge Edge, w io.Writer) error {
-	lbl := edge.GetEdgeHeader().Label()
+	lbl := edge.GetLabel()
 	if lbl != nil {
 		if _, err := fmt.Fprintf(w, "  %s -> %s [label=\"%s\"];\n", fromNode, toNode, lbl); err != nil {
 			return err
@@ -78,10 +78,10 @@ func (d DOTRenderer) Render(g *Graph, graphName string, out io.Writer) error {
 	}
 	for itr := g.AllNodes(); itr.HasNext(); {
 		node := itr.Next()
-		for edgeItr := node.GetNodeHeader().AllOutgoingEdges(); edgeItr.HasNext(); {
+		for edgeItr := node.GetAllOutgoingEdges(); edgeItr.HasNext(); {
 			edge := edgeItr.Next()
-			fromNodeId := nodeMap[edge.GetEdgeHeader().From()]
-			toNodeId := nodeMap[edge.GetEdgeHeader().To()]
+			fromNodeId := nodeMap[edge.GetFrom()]
+			toNodeId := nodeMap[edge.GetTo()]
 			if err := d.RenderEdge(fromNodeId, toNodeId, edge, out); err != nil {
 				return err
 			}

@@ -5,6 +5,28 @@ type NodeIndex struct {
 	nodesByLabel map[interface{}][]Node
 }
 
+// GetNodeIndex builds a node index from the graph for quickly accessing all nodes
+func (g *Graph) GetNodeIndex() NodeIndex {
+	seen := make(map[Node]struct{})
+	arr := make([]Node, 0, len(g.nodes))
+	for n := range g.nodes {
+		arr = append(arr, n)
+		seen[n] = struct{}{}
+	}
+	for i := 0; i < len(arr); i++ {
+		edges := arr[i].GetAllOutgoingEdges()
+		for edges.HasNext() {
+			to := edges.Next().GetTo()
+			if _, ok := seen[to]; ok {
+				continue
+			}
+			seen[to] = struct{}{}
+			arr = append(arr, to)
+		}
+	}
+	return NodeIndex{nodes: arr}
+}
+
 func (n NodeIndex) Len() int {
 	return len(n.nodes)
 }
@@ -104,4 +126,22 @@ func (n *NodeIndex) Copy(target *Graph, copyNode func(Node) Node, copyEdge func(
 		}
 	}
 	return nodeMap
+}
+
+// Copy creates a copy of source graph in target. If target is an
+// empty graph, the result is a clone of the source graph. If target
+// is not empty, after this operation target gets a subgraph that is a
+// copy of the source
+//
+// copyNode function copies the given node, and returns the new
+// node. If it returns nil, the node is not copied.  copyEdge function
+// does the same, creates a copy of the given edge without connecting
+// the edges to any of the nodes. The returned edge will be connected
+// to the matching nodes.
+//
+// Returns a map of nodes where the key is the node in the source
+// graph, and value is the corresponding node in the target graph
+func Copy(target, source *Graph, copyNode func(Node) Node, copyEdge func(Edge) Edge) map[Node]Node {
+	ix := target.GetNodeIndex()
+	return ix.Copy(source, copyNode, copyEdge)
 }

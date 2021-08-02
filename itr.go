@@ -86,6 +86,13 @@ func (n Nodes) Unique() Nodes {
 	})
 }
 
+// NodesByLabelPredicate returns a predicate that select nodes by label. This is to be used in Nodes.Select
+func NodesByLabelPredicate(id interface{}) func(Node) bool {
+	return func(n Node) bool {
+		return n.GetLabel() == id
+	}
+}
+
 type Edges struct {
 	EdgeIterator
 }

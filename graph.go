@@ -30,25 +30,3 @@ func (g *Graph) AddNode(node Node) {
 func (g *Graph) AllNodes() Nodes {
 	return Nodes{&NodeArrayIterator{g.GetNodeIndex().Slice()}}
 }
-
-// GetNodeIndex builds a node index from the graph for quickly accessing all nodes
-func (g *Graph) GetNodeIndex() NodeIndex {
-	seen := make(map[Node]struct{})
-	arr := make([]Node, 0, len(g.nodes))
-	for n := range g.nodes {
-		arr = append(arr, n)
-		seen[n] = struct{}{}
-	}
-	for i := 0; i < len(arr); i++ {
-		edges := arr[i].GetAllOutgoingEdges()
-		for edges.HasNext() {
-			to := edges.Next().GetTo()
-			if _, ok := seen[to]; ok {
-				continue
-			}
-			seen[to] = struct{}{}
-			arr = append(arr, to)
-		}
-	}
-	return NodeIndex{nodes: arr}
-}

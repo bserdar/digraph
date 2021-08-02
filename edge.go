@@ -18,6 +18,10 @@ type EdgeHeader struct {
 	edge  Edge
 }
 
+func NewEdgeHeader(label interface{}) EdgeHeader {
+	return EdgeHeader{label: label}
+}
+
 func (hdr *EdgeHeader) getEdgeHeader() *EdgeHeader {
 	return hdr
 }

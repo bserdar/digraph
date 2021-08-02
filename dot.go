@@ -67,7 +67,7 @@ func (d DOTRenderer) Render(g *Graph, graphName string, out io.Writer) error {
 	// Give nodes unique IDs for the graph
 	nodeMap := map[Node]string{}
 	x := 0
-	for itr := g.AllNodes(); itr.HasNext(); {
+	for itr := g.GetAllNodes(); itr.HasNext(); {
 		node := itr.Next()
 		nodeId := fmt.Sprintf("n%d", x)
 		nodeMap[node] = nodeId
@@ -76,7 +76,7 @@ func (d DOTRenderer) Render(g *Graph, graphName string, out io.Writer) error {
 			return err
 		}
 	}
-	for itr := g.AllNodes(); itr.HasNext(); {
+	for itr := g.GetAllNodes(); itr.HasNext(); {
 		node := itr.Next()
 		for edgeItr := node.GetAllOutgoingEdges(); edgeItr.HasNext(); {
 			edge := edgeItr.Next()

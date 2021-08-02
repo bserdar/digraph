@@ -7,10 +7,16 @@ This package provides the `digraph` package that implements a directed
 graph data structure. Nodes and edges may be labeled. The graph
 supports application-defined structs as nodes and edges.
 
-Node and edge addition, accessor functions, iterators run in
-constant-time. Node deletion is O(n) where n is the number of adjacent
-edges, because deleting a node requires deleting all adjacent
-edges. Deleting an edge is constant-time.
+
+The graph structure is designed so that nodes know the outgoing edges,
+and edges know both the source and target nodes. The graph structure
+itself knows only "some" of the nodes, so retrieving all the nodes of
+the graph or accessing nodes by label requires an intermediate
+structure, the `NodeIndex`. A `NodeIndex` discovers all nodes when
+requested, and then provides indexes access to the nodes. A
+`NodeIndex` only sees the nodes that were accessible from the `Graph`
+when it is created, thus it does not provide a dynamic view of the
+graph.
 
 Digraph is not thread-safe. 
 
@@ -28,31 +34,26 @@ Connect the nodes with edges:
 
 ```
 // edge node1 --edge1--> node2
-edge:=g.NewBasicEdge(node1,node2,"edge1",nil)
+edge:=g.NewBasicEdge("edge1",nil)
+digraph.Connect(node1,node2,edge)
 ```
 
 Get the nodes accessible via a label:
 
 ```
-n:=node1.NextNode("edge1")
+n:=node1.Next("edge1")
 ```
 
 If there are multiple, iterate:
 
 ```
-edges:=node1.AllOutgoingEdgesWithLabel("edge1")
+edges:=node1.GetAllOutgoingEdgesWithLabel("edge1")
 for edges.HasNext() {
    edge:=edges.Next()
 }
 ```
 
-Removing a node removes all adjacent edges.
-
-```
-node1.Remove()
-```
-
-The `BasicNode` and `BasicEdge` contains an application-define
+The `BasicNode` and `BasicEdge` contains an application-defined
 `Payload` field. This allows for `container/list` style graph
 container. It is also possible to use application-specific node and
 edge objects.

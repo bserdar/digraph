@@ -1,11 +1,16 @@
 package digraph
 
+// NodeIndex provides indexed access to all nodes of an underlying
+// graph. The nodes of the graph are discovered when the index is
+// constructed. Thus, a node index may not include nodes that are
+// added to the graph after it is constructed,
 type NodeIndex struct {
 	nodes        []Node
 	nodesByLabel map[interface{}][]Node
 }
 
-// GetNodeIndex builds a node index from the graph for quickly accessing all nodes
+// GetNodeIndex builds a node index from the graph for quickly
+// accessing all accessible nodes
 func (g *Graph) GetNodeIndex() NodeIndex {
 	seen := make(map[Node]struct{})
 	arr := make([]Node, 0, len(g.nodes))
@@ -27,18 +32,22 @@ func (g *Graph) GetNodeIndex() NodeIndex {
 	return NodeIndex{nodes: arr}
 }
 
+// Len returns the number of nodes in the index
 func (n NodeIndex) Len() int {
 	return len(n.nodes)
 }
 
+// Slice returns a slice of all nodes
 func (n NodeIndex) Slice() []Node {
 	return n.nodes
 }
 
+// Nodes returns an iterator over all nodes
 func (n NodeIndex) Nodes() Nodes {
 	return Nodes{&NodeArrayIterator{n.nodes}}
 }
 
+// NodesByLabel returns an iterator of nodes with the given label
 func (n *NodeIndex) NodesByLabel(label interface{}) Nodes {
 	if n.nodesByLabel == nil {
 		n.buildNodesByLabel()

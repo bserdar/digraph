@@ -15,8 +15,8 @@ type Node interface {
 	// label. If there are multiple, panics
 	Next(label interface{}) Node
 
-	RemoveOutgoingEdge(Edge)
-	AddOutgoingEdge(Edge)
+	removeOutgoingEdge(Edge)
+	addOutgoingEdge(Edge)
 }
 
 // NodeHeader must be embedded into every node
@@ -25,15 +25,18 @@ type NodeHeader struct {
 	outgoingEdges map[interface{}]map[Edge]struct{}
 }
 
+// GetLabel returns the node label
 func (hdr *NodeHeader) GetLabel() interface{} {
 	return hdr.label
 }
 
+// SetLabel sets the node label
 func (hdr *NodeHeader) SetLabel(label interface{}) {
 	hdr.label = label
 }
 
-func (hdr *NodeHeader) AddOutgoingEdge(edge Edge) {
+// addOutgoingEdge adds a new outgoing edge to this node. The edge must be disconnected.
+func (hdr *NodeHeader) addOutgoingEdge(edge Edge) {
 	if hdr.outgoingEdges == nil {
 		hdr.outgoingEdges = make(map[interface{}]map[Edge]struct{})
 	}
@@ -45,11 +48,12 @@ func (hdr *NodeHeader) AddOutgoingEdge(edge Edge) {
 	m[edge] = struct{}{}
 }
 
+// HasOutgoingEdges returns true if the node has outgoing edges
 func (hdr *NodeHeader) HasOutgoingEdges() bool {
 	return len(hdr.outgoingEdges) > 0
 }
 
-func (hdr *NodeHeader) RemoveOutgoingEdge(edge Edge) {
+func (hdr *NodeHeader) removeOutgoingEdge(edge Edge) {
 	if hdr.outgoingEdges == nil {
 		return
 	}
@@ -63,6 +67,7 @@ func (hdr *NodeHeader) RemoveOutgoingEdge(edge Edge) {
 	}
 }
 
+// GetAllOutgoingEdges returns all outgoing edges of the node
 func (hdr *NodeHeader) GetAllOutgoingEdges() Edges {
 	if hdr.outgoingEdges == nil {
 		return Edges{&EdgeArrayIterator{}}
@@ -76,6 +81,7 @@ func (hdr *NodeHeader) GetAllOutgoingEdges() Edges {
 	return Edges{&EdgeArrayIterator{arr}}
 }
 
+// GetAllOutgoungEdgesWithLabel returns all edges with the given label
 func (hdr *NodeHeader) GetAllOutgoingEdgesWithLabel(label interface{}) Edges {
 	if hdr.outgoingEdges == nil {
 		return Edges{&EdgeArrayIterator{}}

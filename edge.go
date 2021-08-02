@@ -3,9 +3,16 @@ package digraph
 // Edge represents a labeled or unlabeled directed edge between two
 // nodes of a graph
 type Edge interface {
+	// Return the label of the edge. Label cannot be changed. Remove the
+	// edge and add a new one with a different label
 	GetLabel() interface{}
+	// Return the target node
 	GetTo() Node
+	// Return the source node
 	GetFrom() Node
+
+	// Remove an edge
+	Disconnect()
 
 	getEdgeHeader() *EdgeHeader
 }
@@ -18,6 +25,8 @@ type EdgeHeader struct {
 	edge  Edge
 }
 
+// NewEdgeHeader returns a new constructed edge header with the given
+// label
 func NewEdgeHeader(label interface{}) EdgeHeader {
 	return EdgeHeader{label: label}
 }
@@ -41,6 +50,16 @@ func (hdr *EdgeHeader) GetFrom() Node {
 	return hdr.from
 }
 
+// Disconnect an edge
+func (hdr *EdgeHeader) Disconnect() {
+	if hdr.from != nil && hdr.edge != nil {
+		hdr.from.removeOutgoingEdge(hdr.edge)
+	}
+	hdr.edge = nil
+	hdr.from = nil
+	hdr.to = nil
+}
+
 // Connect two nodes with the given edge. The edge must not be connected before
 func Connect(from, to Node, edge Edge) {
 	hdr := edge.getEdgeHeader()
@@ -50,7 +69,7 @@ func Connect(from, to Node, edge Edge) {
 	hdr.edge = edge
 	hdr.to = to
 	hdr.from = from
-	from.AddOutgoingEdge(edge)
+	from.addOutgoingEdge(edge)
 }
 
 // BasicEdge contains an application-defined payload

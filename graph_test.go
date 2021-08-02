@@ -20,7 +20,7 @@ func TestBasicGraph(t *testing.T) {
 	if edges[0].GetTo() != n2 {
 		t.Error("Wrong end")
 	}
-	edges[0].GetFrom().RemoveOutgoingEdge(edges[0])
+	edges[0].Disconnect()
 	if len(n1.GetAllOutgoingEdges().All()) != 0 {
 		t.Error("There are still edges")
 	}

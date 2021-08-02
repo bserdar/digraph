@@ -151,6 +151,6 @@ func (n *NodeIndex) Copy(target *Graph, copyNode func(Node) Node, copyEdge func(
 // Returns a map of nodes where the key is the node in the source
 // graph, and value is the corresponding node in the target graph
 func Copy(target, source *Graph, copyNode func(Node) Node, copyEdge func(Edge) Edge) map[Node]Node {
-	ix := target.GetNodeIndex()
-	return ix.Copy(source, copyNode, copyEdge)
+	ix := source.GetNodeIndex()
+	return ix.Copy(target, copyNode, copyEdge)
 }

@@ -1,9 +1,5 @@
 package digraph
 
-import (
-	"container/list"
-)
-
 // Nodes is a convenience wrapper aroung NodeItr for chained methods
 type Nodes struct {
 	NodeIterator
@@ -26,28 +22,15 @@ type NodeIterator interface {
 	Next() Node
 }
 
-type listNodes struct {
-	at *list.Element
+type NodeArrayIterator struct {
+	Nodes []Node
 }
 
-func (l *listNodes) HasNext() bool { return l.at != nil }
-
-func (l *listNodes) Next() Node {
-	ret := l.at.Value.(Node)
-	l.at = l.at.Next()
-	return ret
-}
-
-type arrNodes struct {
-	arr []Node
-	at  int
-}
-
-func (a *arrNodes) HasNext() bool { return a.at < len(a.arr) }
-func (a *arrNodes) Next() Node    { ret := a.arr[a.at]; a.at++; return ret }
+func (a *NodeArrayIterator) HasNext() bool { return len(a.Nodes) > 0 }
+func (a *NodeArrayIterator) Next() Node    { ret := a.Nodes[0]; a.Nodes = a.Nodes[1:]; return ret }
 
 type filterNodes struct {
-	source Nodes
+	source NodeIterator
 	filter func(Node) bool
 
 	nextReady bool
@@ -89,10 +72,10 @@ func (n Nodes) Select(predicate func(Node) bool) Nodes {
 }
 
 // NewNodes returns a Nodes for the given array of nodes
-func NewNodes(nodes ...Node) Nodes { return Nodes{&arrNodes{arr: nodes}} }
+func NewNodes(nodes ...Node) Nodes { return Nodes{&NodeArrayIterator{Nodes: nodes}} }
 
 // Unique filters the nodes so only unique nodes are returned
-func (n Nodes) Uniqu() Nodes {
+func (n Nodes) Unique() Nodes {
 	seen := make(map[Node]struct{})
 	return n.Select(func(node Node) bool {
 		_, ok := seen[node]
@@ -101,6 +84,13 @@ func (n Nodes) Uniqu() Nodes {
 		}
 		return !ok
 	})
+}
+
+// NodesByLabelPredicate returns a predicate that select nodes by label. This is to be used in Nodes.Select
+func NodesByLabelPredicate(id interface{}) func(Node) bool {
+	return func(n Node) bool {
+		return n.GetLabel() == id
+	}
 }
 
 type Edges struct {
@@ -126,12 +116,7 @@ func (e *edgeNodeSelector) Next() Node    { return e.selectNode(e.source.Next())
 
 // Targets returns a node iterator that goes through the target nodes
 func (e Edges) Targets() Nodes {
-	return Nodes{&edgeNodeSelector{source: e, selectNode: func(e Edge) Node { return e.To() }}}
-}
-
-// Sources returns a node iterator that goes through the source nodes
-func (e Edges) Sources() Nodes {
-	return Nodes{&edgeNodeSelector{source: e, selectNode: func(e Edge) Node { return e.From() }}}
+	return Nodes{&edgeNodeSelector{source: e, selectNode: func(e Edge) Node { return e.GetTo() }}}
 }
 
 // EdgeIterator iterates through a list of edges
@@ -142,19 +127,9 @@ type EdgeIterator interface {
 	Next() Edge
 }
 
-type emptyEdges struct{}
-
-func (emptyEdges) HasNext() bool { return false }
-func (emptyEdges) Next() Edge    { panic("No more edges") }
-
-type listEdges struct {
-	at *list.Element
+type EdgeArrayIterator struct {
+	Edges []Edge
 }
 
-func (l *listEdges) HasNext() bool { return l.at != nil }
-
-func (l *listEdges) Next() Edge {
-	ret := l.at.Value.(Edge)
-	l.at = l.at.Next()
-	return ret
-}
+func (e *EdgeArrayIterator) HasNext() bool { return len(e.Edges) > 0 }
+func (e *EdgeArrayIterator) Next() Edge    { ret := e.Edges[0]; e.Edges = e.Edges[1:]; return ret }

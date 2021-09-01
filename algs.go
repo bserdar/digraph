@@ -1,75 +1,12 @@
 package digraph
 
-// NodeIndex provides indexed access to all nodes of an underlying
-// graph. The nodes of the graph are discovered when the index is
-// constructed. Thus, a node index may not include nodes that are
-// added to the graph after it is constructed,
-type NodeIndex struct {
-	nodes        []Node
-	nodesByLabel map[interface{}][]Node
-}
-
-// GetNodeIndex builds a node index from the graph for quickly
-// accessing all accessible nodes
-func (g *Graph) GetNodeIndex() NodeIndex {
-	seen := make(map[Node]struct{})
-	arr := make([]Node, 0, len(g.nodes))
-	for n := range g.nodes {
-		arr = append(arr, n)
-		seen[n] = struct{}{}
-	}
-	for i := 0; i < len(arr); i++ {
-		edges := arr[i].GetAllOutgoingEdges()
-		for edges.HasNext() {
-			to := edges.Next().GetTo()
-			if _, ok := seen[to]; ok {
-				continue
-			}
-			seen[to] = struct{}{}
-			arr = append(arr, to)
-		}
-	}
-	return NodeIndex{nodes: arr}
-}
-
-// Len returns the number of nodes in the index
-func (n NodeIndex) Len() int {
-	return len(n.nodes)
-}
-
-// Slice returns a slice of all nodes
-func (n NodeIndex) Slice() []Node {
-	return n.nodes
-}
-
-// Nodes returns an iterator over all nodes
-func (n NodeIndex) Nodes() Nodes {
-	return Nodes{&NodeArrayIterator{n.nodes}}
-}
-
-// NodesByLabel returns an iterator of nodes with the given label
-func (n *NodeIndex) NodesByLabel(label interface{}) Nodes {
-	if n.nodesByLabel == nil {
-		n.buildNodesByLabel()
-	}
-	return Nodes{&NodeArrayIterator{n.nodesByLabel[label]}}
-}
-
-func (n *NodeIndex) buildNodesByLabel() {
-	n.nodesByLabel = make(map[interface{}][]Node)
-	for _, node := range n.nodes {
-		label := node.GetLabel()
-		n.nodesByLabel[label] = append(n.nodesByLabel[label], node)
-	}
-}
-
 // Sinks returns all nodes that have no outgoing edges.
-func (n *NodeIndex) Sinks() []Node {
+func Sinks(index *Index) []Node {
 	ret := make([]Node, 0)
-	nodes := n.Nodes()
+	nodes := index.Nodes()
 	for nodes.HasNext() {
 		node := nodes.Next()
-		if !node.HasOutgoingEdges() {
+		if !node.HasOut() {
 			ret = append(ret, node)
 		}
 	}
@@ -77,13 +14,13 @@ func (n *NodeIndex) Sinks() []Node {
 }
 
 // Sources returns all nodes that have no incoming edges.
-func (n *NodeIndex) Sources() []Node {
+func Sources(index *Index) []Node {
 	nodeMap := make(map[Node]struct{})
-	for _, node := range n.nodes {
+	for _, node := range index.NodesSlice() {
 		nodeMap[node] = struct{}{}
 	}
-	for _, node := range n.nodes {
-		targets := node.GetAllOutgoingEdges().Targets()
+	for _, node := range index.NodesSlice() {
+		targets := node.Out().Targets()
 		for targets.HasNext() {
 			delete(nodeMap, targets.Next())
 		}
@@ -108,21 +45,21 @@ func (n *NodeIndex) Sources() []Node {
 //
 // Returns a map of nodes where the key is the node in the source
 // graph, and value is the corresponding node in the target graph
-func (n *NodeIndex) Copy(target *Graph, copyNode func(Node) Node, copyEdge func(Edge) Edge) map[Node]Node {
+func Copy(index *Index, target *Graph, copyNode func(Node) Node, copyEdge func(Edge) Edge) map[Node]Node {
 	nodeMap := make(map[Node]Node)
-	for _, oldNode := range n.nodes {
+	for _, oldNode := range index.NodesSlice() {
 		newNode := copyNode(oldNode)
 		if newNode != nil {
 			target.AddNode(newNode)
 			nodeMap[oldNode] = newNode
 		}
 	}
-	for _, oldNode := range n.nodes {
+	for _, oldNode := range index.NodesSlice() {
 		newNode := nodeMap[oldNode]
 		if newNode == nil {
 			continue
 		}
-		for edges := oldNode.GetAllOutgoingEdges(); edges.HasNext(); {
+		for edges := oldNode.Out(); edges.HasNext(); {
 			edge := edges.Next()
 			newTarget := nodeMap[edge.GetTo()]
 			if newTarget == nil {
@@ -137,7 +74,7 @@ func (n *NodeIndex) Copy(target *Graph, copyNode func(Node) Node, copyEdge func(
 	return nodeMap
 }
 
-// Copy creates a copy of source graph in target. If target is an
+// CopyGraph creates a copy of source graph in target. If target is an
 // empty graph, the result is a clone of the source graph. If target
 // is not empty, after this operation target gets a subgraph that is a
 // copy of the source
@@ -150,7 +87,34 @@ func (n *NodeIndex) Copy(target *Graph, copyNode func(Node) Node, copyEdge func(
 //
 // Returns a map of nodes where the key is the node in the source
 // graph, and value is the corresponding node in the target graph
-func Copy(target, source *Graph, copyNode func(Node) Node, copyEdge func(Edge) Edge) map[Node]Node {
-	ix := source.GetNodeIndex()
-	return ix.Copy(target, copyNode, copyEdge)
+func CopyGraph(target, source *Graph, copyNode func(Node) Node, copyEdge func(Edge) Edge) map[Node]Node {
+	ix := target.GetIndex()
+	return Copy(ix, source, copyNode, copyEdge)
+}
+
+// Iterate all nodes and edges of the graph until one of the functions returns false
+func Iterate(root Node, nodeFunc func(Node) bool, edgeFunc func(Edge) bool) bool {
+	return IterateUnique(root, nodeFunc, edgeFunc, map[Node]struct{}{})
+}
+
+// IterateUnique iterates all nodes and edges until one of the
+// functions returns false. It skips the nodes in the seen map
+func IterateUnique(root Node, nodeFunc func(Node) bool, edgeFunc func(Edge) bool, seen map[Node]struct{}) bool {
+	if _, exists := seen[root]; exists {
+		return true
+	}
+	seen[root] = struct{}{}
+	if !nodeFunc(root) {
+		return false
+	}
+	for edges := root.Out(); edges.HasNext(); {
+		edge := edges.Next()
+		if !edgeFunc(edge) {
+			return false
+		}
+		if !IterateUnique(edge.GetTo(), nodeFunc, edgeFunc, seen) {
+			return false
+		}
+	}
+	return true
 }

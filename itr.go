@@ -22,12 +22,12 @@ type NodeIterator interface {
 	Next() Node
 }
 
-type NodeArrayIterator struct {
+type nodeSliceIterator struct {
 	Nodes []Node
 }
 
-func (a *NodeArrayIterator) HasNext() bool { return len(a.Nodes) > 0 }
-func (a *NodeArrayIterator) Next() Node    { ret := a.Nodes[0]; a.Nodes = a.Nodes[1:]; return ret }
+func (a *nodeSliceIterator) HasNext() bool { return len(a.Nodes) > 0 }
+func (a *nodeSliceIterator) Next() Node    { ret := a.Nodes[0]; a.Nodes = a.Nodes[1:]; return ret }
 
 type filterNodes struct {
 	source NodeIterator
@@ -71,8 +71,45 @@ func (n Nodes) Select(predicate func(Node) bool) Nodes {
 	return Nodes{&filterNodes{source: n, filter: predicate}}
 }
 
-// NewNodes returns a Nodes for the given array of nodes
-func NewNodes(nodes ...Node) Nodes { return Nodes{&NodeArrayIterator{Nodes: nodes}} }
+// NewNodeSliceIterator returns a Nodes for the given array of nodes
+func NewNodeSliceIterator(nodes ...Node) Nodes { return Nodes{&nodeSliceIterator{Nodes: nodes}} }
+
+// nodeWalkIterator walk through the nodes by following edges
+type nodeWalkIterator struct {
+	seen  map[Node]struct{}
+	queue map[Node]struct{}
+}
+
+func (n *nodeWalkIterator) HasNext() bool {
+	return len(n.queue) > 0
+}
+
+func (n *nodeWalkIterator) Next() Node {
+	for node := range n.queue {
+		n.seen[node] = struct{}{}
+
+		for edges := node.Out(); edges.HasNext(); {
+			edge := edges.Next()
+			next := edge.GetTo()
+			if _, s := n.seen[next]; !s {
+				n.queue[next] = struct{}{}
+			}
+		}
+		delete(n.queue, node)
+		return node
+	}
+	panic("No more nodes")
+}
+
+// NewNodeWalkIterator returns a Nodes that walks through all the
+// nodes accessible from the given nodes
+func NewNodeWalkIterator(nodes ...Node) Nodes {
+	m := make(map[Node]struct{})
+	for _, n := range nodes {
+		m[n] = struct{}{}
+	}
+	return Nodes{&nodeWalkIterator{seen: make(map[Node]struct{}), queue: m}}
+}
 
 // Unique filters the nodes so only unique nodes are returned
 func (n Nodes) Unique() Nodes {
@@ -93,6 +130,7 @@ func NodesByLabelPredicate(id interface{}) func(Node) bool {
 	}
 }
 
+// Edges is a wrapper around edge iterator
 type Edges struct {
 	EdgeIterator
 }
@@ -116,7 +154,7 @@ func (e *edgeNodeSelector) Next() Node    { return e.selectNode(e.source.Next())
 
 // Targets returns a node iterator that goes through the target nodes
 func (e Edges) Targets() Nodes {
-	return Nodes{&edgeNodeSelector{source: e, selectNode: func(e Edge) Node { return e.GetTo() }}}
+	return Nodes{&edgeNodeSelector{source: e, selectNode: func(e Edge) Node { return e.GetTo() }}}.Unique()
 }
 
 // EdgeIterator iterates through a list of edges
@@ -127,9 +165,56 @@ type EdgeIterator interface {
 	Next() Edge
 }
 
-type EdgeArrayIterator struct {
+type edgeSliceIterator struct {
 	Edges []Edge
 }
 
-func (e *EdgeArrayIterator) HasNext() bool { return len(e.Edges) > 0 }
-func (e *EdgeArrayIterator) Next() Edge    { ret := e.Edges[0]; e.Edges = e.Edges[1:]; return ret }
+func (e *edgeSliceIterator) HasNext() bool { return len(e.Edges) > 0 }
+func (e *edgeSliceIterator) Next() Edge    { ret := e.Edges[0]; e.Edges = e.Edges[1:]; return ret }
+
+// NewEdges returns an edge iterator for the edges
+func NewEdges(edge ...Edge) Edges {
+	return Edges{&edgeSliceIterator{Edges: edge}}
+}
+
+type filterEdges struct {
+	source EdgeIterator
+	filter func(Edge) bool
+
+	nextReady bool
+	next      Edge
+}
+
+func (a *filterEdges) adv() {
+	if a.nextReady {
+		return
+	}
+	a.nextReady = true
+	a.next = nil
+	for a.source.HasNext() {
+		edge := a.source.Next()
+		if a.filter(edge) {
+			a.next = edge
+			return
+		}
+	}
+}
+
+func (a *filterEdges) HasNext() bool {
+	a.adv()
+	return a.next != nil
+}
+
+func (a *filterEdges) Next() Edge {
+	a.adv()
+	if a.next == nil {
+		panic("Next edge not available")
+	}
+	a.nextReady = false
+	return a.next
+}
+
+// Select returns a subset of the given edges containing only those edges selected by the predicate
+func (e Edges) Select(predicate func(Edge) bool) Edges {
+	return Edges{&filterEdges{source: e, filter: predicate}}
+}

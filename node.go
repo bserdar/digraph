@@ -6,14 +6,17 @@ type Node interface {
 	SetLabel(interface{})
 
 	// Returns if the node has any outgoing edges
-	HasOutgoingEdges() bool
+	HasOut() bool
 	// Returns all outgoing edges of the node
-	GetAllOutgoingEdges() Edges
+	Out() Edges
 	// Returns the outgoing edges with the given label
-	GetAllOutgoingEdgesWithLabel(interface{}) Edges
-	// Returns the node accessed by following the edge with the given
-	// label. If there are multiple, panics
-	Next(label interface{}) Node
+	OutWith(interface{}) Edges
+
+	// Returns all directly accessible nodes
+	Next() []Node
+
+	// Returns all directly accessible nodes with label
+	NextWith(interface{}) []Node
 
 	removeOutgoingEdge(Edge)
 	addOutgoingEdge(Edge)
@@ -21,8 +24,8 @@ type Node interface {
 
 // NodeHeader must be embedded into every node
 type NodeHeader struct {
-	label         interface{}
-	outgoingEdges map[interface{}]map[Edge]struct{}
+	label interface{}
+	out   edgeSet
 }
 
 // GetLabel returns the node label
@@ -37,80 +40,62 @@ func (hdr *NodeHeader) SetLabel(label interface{}) {
 
 // addOutgoingEdge adds a new outgoing edge to this node. The edge must be disconnected.
 func (hdr *NodeHeader) addOutgoingEdge(edge Edge) {
-	if hdr.outgoingEdges == nil {
-		hdr.outgoingEdges = make(map[interface{}]map[Edge]struct{})
+	if hdr.out == nil {
+		hdr.out = newSliceEdgeSet()
 	}
-	m := hdr.outgoingEdges[edge.GetLabel()]
-	if m == nil {
-		m = make(map[Edge]struct{})
-		hdr.outgoingEdges[edge.GetLabel()] = m
+	hdr.out.addEdge(edge)
+	if sl, ok := hdr.out.(*sliceEdgeSet); ok {
+		if sl.length() > 10 {
+			hdr.out = sl.toMap()
+		}
 	}
-	m[edge] = struct{}{}
 }
 
-// HasOutgoingEdges returns true if the node has outgoing edges
-func (hdr *NodeHeader) HasOutgoingEdges() bool {
-	return len(hdr.outgoingEdges) > 0
+// Next returns all next nodes
+func (hdr *NodeHeader) Next() []Node {
+	if hdr.out == nil {
+		return nil
+	}
+	return hdr.out.next()
+}
+
+// NextWith returns all next nodes reachable with label
+func (hdr *NodeHeader) NextWith(label interface{}) []Node {
+	if hdr.out == nil {
+		return nil
+	}
+	return hdr.out.nextWith(label)
+}
+
+// HasOut returns true if the node has outgoing edges
+func (hdr *NodeHeader) HasOut() bool {
+	if hdr.out == nil {
+		return false
+	}
+	return hdr.out.hasEdges()
 }
 
 func (hdr *NodeHeader) removeOutgoingEdge(edge Edge) {
-	if hdr.outgoingEdges == nil {
+	if hdr.out == nil {
 		return
 	}
-	m := hdr.outgoingEdges[edge.GetLabel()]
-	if m == nil {
-		return
-	}
-	delete(m, edge)
-	if len(m) == 0 {
-		delete(hdr.outgoingEdges, edge.GetLabel())
-	}
+	hdr.out.removeEdge(edge)
 }
 
-// GetAllOutgoingEdges returns all outgoing edges of the node
-func (hdr *NodeHeader) GetAllOutgoingEdges() Edges {
-	if hdr.outgoingEdges == nil {
-		return Edges{&EdgeArrayIterator{}}
+// Out returns all outgoing edges of the node
+func (hdr *NodeHeader) Out() Edges {
+	if hdr.out == nil {
+		return Edges{&edgeSliceIterator{}}
 	}
-	arr := make([]Edge, 0, len(hdr.outgoingEdges))
-	for _, m := range hdr.outgoingEdges {
-		for edge := range m {
-			arr = append(arr, edge)
-		}
-	}
-	return Edges{&EdgeArrayIterator{arr}}
+	return hdr.out.getEdges()
 }
 
-// GetAllOutgoungEdgesWithLabel returns all edges with the given label
-func (hdr *NodeHeader) GetAllOutgoingEdgesWithLabel(label interface{}) Edges {
-	if hdr.outgoingEdges == nil {
-		return Edges{&EdgeArrayIterator{}}
+// OutWith returns all edges with the given label
+func (hdr *NodeHeader) OutWith(label interface{}) Edges {
+	if hdr.out == nil {
+		return Edges{&edgeSliceIterator{}}
 	}
-	m := hdr.outgoingEdges[label]
-	arr := make([]Edge, 0, len(m))
-	for edge := range m {
-		arr = append(arr, edge)
-	}
-	return Edges{&EdgeArrayIterator{arr}}
-}
-
-// Next returns the node reached by following the edge with the given
-// label. If there are none, returns nil. If there are multiple,
-// panics
-func (hdr *NodeHeader) Next(label interface{}) Node {
-	if hdr.outgoingEdges == nil {
-		return nil
-	}
-	m := hdr.outgoingEdges[label]
-	switch len(m) {
-	case 0:
-		return nil
-	case 1:
-		for k := range m {
-			return k.GetTo()
-		}
-	}
-	panic("Multiple nodes for Next")
+	return hdr.out.getEdgesWith(label)
 }
 
 // BasicNode contains an application defined payload

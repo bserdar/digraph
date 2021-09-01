@@ -15,8 +15,10 @@ func (g *Graph) GetNodeIndex() NodeIndex {
 	seen := make(map[Node]struct{})
 	arr := make([]Node, 0, len(g.nodes))
 	for n := range g.nodes {
-		arr = append(arr, n)
-		seen[n] = struct{}{}
+		if _, ok := seen[n]; !ok {
+			arr = append(arr, n)
+			seen[n] = struct{}{}
+		}
 	}
 	for i := 0; i < len(arr); i++ {
 		edges := arr[i].GetAllOutgoingEdges()

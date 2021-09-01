@@ -7,22 +7,25 @@ import (
 
 // DOTRenderer renders a graph in Graphviz dot format
 type DOTRenderer struct {
-	NodeRenderer func(string, Node, io.Writer) error
-	EdgeRenderer func(string, string, Edge, io.Writer) error
+	// NodeRenderer renderes a node. If the node is to be excluded, returns false.
+	NodeRenderer func(string, Node, io.Writer) (bool, error)
+	// EdgeRenderer renders an edge. The from and to nodes are rendered
+	// if this is called. If the edge is to be excluded, returns false
+	EdgeRenderer func(fromID string, toID string, edge Edge, w io.Writer) (bool, error)
 }
 
 // RenderNode renders a node. If node renderer is not set, calls the default renderer
-func (d DOTRenderer) RenderNode(ID string, node Node, w io.Writer) error {
+func (d DOTRenderer) RenderNode(ID string, node Node, w io.Writer) (bool, error) {
 	if d.NodeRenderer == nil {
-		return DefaultDOTNodeRender(ID, node, w)
+		return true, DefaultDOTNodeRender(ID, node, w)
 	}
 	return d.NodeRenderer(ID, node, w)
 }
 
 // RenderEdge renders an edge. If edge renderer is not set, call the default rendeded
-func (d DOTRenderer) RenderEdge(fromID, toID string, edge Edge, w io.Writer) error {
+func (d DOTRenderer) RenderEdge(fromID, toID string, edge Edge, w io.Writer) (bool, error) {
 	if d.EdgeRenderer == nil {
-		return DefaultDOTEdgeRender(fromID, toID, edge, w)
+		return true, DefaultDOTEdgeRender(fromID, toID, edge, w)
 	}
 	return d.EdgeRenderer(fromID, toID, edge, w)
 }
@@ -70,20 +73,26 @@ func (d DOTRenderer) Render(g *Graph, graphName string, out io.Writer) error {
 	for itr := g.GetAllNodes(); itr.HasNext(); {
 		node := itr.Next()
 		nodeId := fmt.Sprintf("n%d", x)
-		nodeMap[node] = nodeId
-		x++
-		if err := d.RenderNode(nodeId, node, out); err != nil {
+		rendered, err := d.RenderNode(nodeId, node, out)
+		if err != nil {
 			return err
+		}
+		if rendered {
+			x++
+			nodeMap[node] = nodeId
 		}
 	}
 	for itr := g.GetAllNodes(); itr.HasNext(); {
 		node := itr.Next()
 		for edgeItr := node.GetAllOutgoingEdges(); edgeItr.HasNext(); {
 			edge := edgeItr.Next()
-			fromNodeId := nodeMap[edge.GetFrom()]
-			toNodeId := nodeMap[edge.GetTo()]
-			if err := d.RenderEdge(fromNodeId, toNodeId, edge, out); err != nil {
-				return err
+			fromNodeId, ok1 := nodeMap[edge.GetFrom()]
+			toNodeId, ok2 := nodeMap[edge.GetTo()]
+			if ok1 && ok2 {
+				_, err := d.RenderEdge(fromNodeId, toNodeId, edge, out)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}

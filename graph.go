@@ -8,7 +8,7 @@ package digraph
 // disjoint components.
 //
 // Two graphs can be merged simply by adding an edge between their two
-// nods. Then the graph containing the source node of the edge will
+// nodes. Then the graph containing the source node of the edge will
 // include all the accessible nodes of the second graph.
 type Graph struct {
 	// nodes keeps some of the nodes of the graph
@@ -37,5 +37,9 @@ func (g *Graph) AddNode(node Node) {
 
 // GetAllNodes returns an iterator over all nodes of a graph
 func (g *Graph) GetAllNodes() Nodes {
-	return Nodes{&NodeArrayIterator{g.GetNodeIndex().Slice()}}
+	arr := make([]Node, 0, len(g.nodes))
+	for node := range g.nodes {
+		arr = append(arr, node)
+	}
+	return NewNodeWalkIterator(arr...)
 }

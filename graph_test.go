@@ -13,7 +13,7 @@ func TestBasicGraph(t *testing.T) {
 	g.AddNode(n2)
 	Connect(n1, n2, NewBasicEdge("label", nil))
 
-	edges := n1.GetAllOutgoingEdges().All()
+	edges := n1.Out().All()
 	if len(edges) != 1 {
 		t.Errorf("Expected 1 edge, %d", len(edges))
 	}
@@ -21,7 +21,7 @@ func TestBasicGraph(t *testing.T) {
 		t.Error("Wrong end")
 	}
 	edges[0].Disconnect()
-	if len(n1.GetAllOutgoingEdges().All()) != 0 {
+	if len(n1.Out().All()) != 0 {
 		t.Error("There are still edges")
 	}
 }

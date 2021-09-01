@@ -84,7 +84,7 @@ func (d DOTRenderer) Render(g *Graph, graphName string, out io.Writer) error {
 	}
 	for itr := g.GetAllNodes(); itr.HasNext(); {
 		node := itr.Next()
-		for edgeItr := node.GetAllOutgoingEdges(); edgeItr.HasNext(); {
+		for edgeItr := node.Out(); edgeItr.HasNext(); {
 			edge := edgeItr.Next()
 			fromNodeId, ok1 := nodeMap[edge.GetFrom()]
 			toNodeId, ok2 := nodeMap[edge.GetTo()]

@@ -92,6 +92,17 @@ func CopyGraph(target, source *Graph, copyNode func(Node) Node, copyEdge func(Ed
 	return Copy(ix, source, copyNode, copyEdge)
 }
 
+// IterateGraph iterates all nodes and edges of the graph until one of the functions returns false
+func IterateGraph(g *Graph, nodeFunc func(Node) bool, edgeFunc func(Edge) bool) bool {
+	seen := make(map[Node]struct{})
+	for node := range g.nodes {
+		if !IterateUnique(node, nodeFunc, edgeFunc, seen) {
+			return false
+		}
+	}
+	return true
+}
+
 // Iterate all nodes and edges of the graph until one of the functions returns false
 func Iterate(root Node, nodeFunc func(Node) bool, edgeFunc func(Edge) bool) bool {
 	return IterateUnique(root, nodeFunc, edgeFunc, map[Node]struct{}{})

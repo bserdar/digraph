@@ -45,16 +45,16 @@ func Sources(index *Index) []Node {
 //
 // Returns a map of nodes where the key is the node in the source
 // graph, and value is the corresponding node in the target graph
-func Copy(index *Index, target *Graph, copyNode func(Node) Node, copyEdge func(Edge) Edge) map[Node]Node {
+func Copy(target *Graph, source *Index, copyNode func(Node) Node, copyEdge func(Edge) Edge) map[Node]Node {
 	nodeMap := make(map[Node]Node)
-	for _, oldNode := range index.NodesSlice() {
+	for _, oldNode := range source.NodesSlice() {
 		newNode := copyNode(oldNode)
 		if newNode != nil {
 			target.AddNode(newNode)
 			nodeMap[oldNode] = newNode
 		}
 	}
-	for _, oldNode := range index.NodesSlice() {
+	for _, oldNode := range source.NodesSlice() {
 		newNode := nodeMap[oldNode]
 		if newNode == nil {
 			continue
@@ -88,8 +88,8 @@ func Copy(index *Index, target *Graph, copyNode func(Node) Node, copyEdge func(E
 // Returns a map of nodes where the key is the node in the source
 // graph, and value is the corresponding node in the target graph
 func CopyGraph(target, source *Graph, copyNode func(Node) Node, copyEdge func(Edge) Edge) map[Node]Node {
-	ix := target.GetIndex()
-	return Copy(ix, source, copyNode, copyEdge)
+	ix := source.GetIndex()
+	return Copy(target, ix, copyNode, copyEdge)
 }
 
 // IterateGraph iterates all nodes and edges of the graph until one of the functions returns false

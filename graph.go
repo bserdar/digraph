@@ -31,6 +31,9 @@ func New() *Graph {
 // AddNode adds the node to the graph. The node can be the node of a
 // disconnected graph.
 func (g *Graph) AddNode(node Node) {
+	if node == nil {
+		panic("nil node")
+	}
 	g.init()
 	g.nodes[node] = struct{}{}
 }

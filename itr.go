@@ -1,5 +1,7 @@
 package digraph
 
+import ()
+
 // Nodes is a convenience wrapper aroung NodeItr for chained methods
 type Nodes struct {
 	NodeIterator
@@ -77,38 +79,50 @@ func NewNodeSliceIterator(nodes ...Node) Nodes { return Nodes{&nodeSliceIterator
 // nodeWalkIterator walk through the nodes by following edges
 type nodeWalkIterator struct {
 	seen  map[Node]struct{}
-	queue map[Node]struct{}
+	queue []Node
 }
 
 func (n *nodeWalkIterator) HasNext() bool {
-	return len(n.queue) > 0
+	for {
+		if len(n.queue) == 0 {
+			return false
+		}
+		if _, seen := n.seen[n.queue[0]]; seen {
+			n.queue = n.queue[1:]
+		} else {
+			// First element of the queue was not seen, return true
+			return true
+		}
+	}
 }
 
 func (n *nodeWalkIterator) Next() Node {
-	for node := range n.queue {
-		n.seen[node] = struct{}{}
-
-		for edges := node.Out(); edges.HasNext(); {
-			edge := edges.Next()
-			next := edge.GetTo()
-			if _, s := n.seen[next]; !s {
-				n.queue[next] = struct{}{}
-			}
+	for {
+		if _, seen := n.seen[n.queue[0]]; seen {
+			n.queue = n.queue[1:]
+		} else {
+			break
 		}
-		delete(n.queue, node)
-		return node
 	}
-	panic("No more nodes")
+	// queue[0] is not seen
+	node := n.queue[0]
+	n.queue = n.queue[1:]
+	n.seen[node] = struct{}{}
+
+	for edges := node.Out(); edges.HasNext(); {
+		edge := edges.Next()
+		next := edge.GetTo()
+		if _, s := n.seen[next]; !s {
+			n.queue = append(n.queue, next)
+		}
+	}
+	return node
 }
 
 // NewNodeWalkIterator returns a Nodes that walks through all the
 // nodes accessible from the given nodes
 func NewNodeWalkIterator(nodes ...Node) Nodes {
-	m := make(map[Node]struct{})
-	for _, n := range nodes {
-		m[n] = struct{}{}
-	}
-	return Nodes{&nodeWalkIterator{seen: make(map[Node]struct{}), queue: m}}
+	return Nodes{&nodeWalkIterator{seen: make(map[Node]struct{}), queue: nodes}}
 }
 
 // Unique filters the nodes so only unique nodes are returned
